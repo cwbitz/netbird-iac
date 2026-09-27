@@ -168,7 +168,39 @@
 # ------------------------------------------------------------------------------
 # Optional first-owner bootstrap. /api/setup is unauthenticated and only works
 # while no account exists; on later runs it is skipped.
+#
+# Owner password: when netbird_owner_email is set and the password is empty, a
+# password is generated and persisted in the encrypted vault_generated.yml (the
+# same pattern as the fallback ansible password). Set vault_owner_password in
+# vault.yml to choose your own. With no owner email the password is never applied
+# (onboarding is manual at /setup); supplying one anyway produces a warning.
 # ------------------------------------------------------------------------------
+- name: "[NetBird] Provision an owner password (email set, no password supplied)"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.include_role:
+    name: helpers
+    tasks_from: vault_secrets_dispatch
+  vars:
+    vault_secrets_component: "netbird_owner"
+    vault_secrets_vault_file: "vault_generated.yml"
+    vault_secrets_list:
+      - var: "vault_owner_password"
+        type: "base64"
+        length: 24
+  when: netbird_owner_email | default('') | length > 0
+
+- name: "[NetBird] Warn that a supplied owner password has no effect without an owner email"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.debug:
+    msg: >-
+      netbird_owner_password is set but netbird_owner_email is empty, so the
+      first owner is NOT created automatically and this password is not applied.
+      Set netbird_owner_email, or onboard manually at
+      https://{{ netbird_domain }}/setup.
+  when:
+    - netbird_owner_email | default('') | length == 0
+    - netbird_owner_password | default('') | length > 0
+
 - name: "[NetBird] Check whether instance setup is still required"
   tags: [netbird, netbird_owner]
   ansible.builtin.uri:

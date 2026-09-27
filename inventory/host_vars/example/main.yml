@@ -60,10 +60,12 @@ netbird_domain: "{{ vault_domain_name }}"
 netbird_letsencrypt_email: "{{ vault_letsencrypt_email }}"
 
 # --- Optional first-owner bootstrap ------------------------------------------
-# When netbird_owner_email + netbird_owner_password are set, the role creates the
-# first owner through the unauthenticated /api/setup endpoint (only works while
-# the instance has no accounts). Leave empty to do the onboarding manually via
-# the browser /setup page instead.
+# When netbird_owner_email is set the role creates the first owner through the
+# unauthenticated /api/setup endpoint (only works while the instance has no
+# accounts). If netbird_owner_password is also set it is used; if it is empty a
+# password is generated into the encrypted vault_generated.yml. Leave the email
+# empty to onboard manually at https://<domain>/setup (a password set without an
+# email is not applied and produces a warning).
 netbird_owner_email: "{{ vault_owner_email | default('') }}"
 netbird_owner_name: "{{ vault_owner_name | default('') }}"
 netbird_owner_password: "{{ vault_owner_password | default('') }}"

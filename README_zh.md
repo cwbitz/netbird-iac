@@ -52,9 +52,10 @@ ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）
 `vault_<id>_ssh_privkey_file` 显式指定（与公钥路径同处 vault.yml，仅接受路径，不接受
 内联公钥字符串）。镜像源也在这里配置（见下）。
 
-vault 里填了 `netbird_owner_email` + `netbird_owner_password` 时会自动创建首个
-owner；否则浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何账号时
-可用）。
+vault 里填了 `netbird_owner_email` 时会通过 `/api/setup` 自动创建首个 owner；
+`netbird_owner_password` 留空则由角色生成并写入加密的 `vault_generated.yml`。
+不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何
+账号时可用；只填密码而不填 email 不会生效，只会打印警告）。
 
 Tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、
 `netbird_owner`，可用 `make ans-tags TAGS=netbird_config` 单独执行。

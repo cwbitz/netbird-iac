@@ -56,8 +56,11 @@ vault_letsencrypt_email: "admin@example.com"
 
 # --- Optional first-owner bootstrap ------------------------------------------
 # The owner is a local user; the email must be a valid email address (it need
-# not match the deployment domain). Fill these to auto-create the first owner;
-# leave empty to onboard manually at https://<domain>/setup.
+# not match the deployment domain). Set the email to auto-create the first owner
+# via /api/setup; leave it empty to onboard manually at https://<domain>/setup.
+# The password is optional: leave it empty to have one generated into the
+# encrypted vault_generated.yml (set it here to choose your own). A password
+# without an email has no effect (onboarding is manual) and logs a warning.
 vault_owner_email: ""
 vault_owner_name: ""
 vault_owner_password: ""
@@ -76,6 +79,11 @@ vault_pat: ""
 #   vault_session_cookie_encryption_key         session cookie encryption key
 #   vault_ansible_password                      the service account password
 #                                               (only when no public key is given)
+#   vault_owner_password                        the first owner password (only
+#                                               when the owner email is set and
+#                                               no password is given here)
 # Existing non-empty values are preserved on later runs (never rotated).
+# A generated value wins over an empty placeholder here; once generated, edit it
+# in vault_generated.yml (removing the key falls back to the value in this file).
 # Include vault_generated.yml in your backup/restore procedure: losing
 # datastore encryption key data makes encrypted user data unrecoverable.

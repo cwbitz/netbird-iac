@@ -76,10 +76,12 @@ path is `vault_<id>_ssh_privkey_file` (set explicitly next to the public key
 path; only paths are accepted, never raw key strings). It is also where region
 mirrors are configured (see below).
 
-When `netbird_owner_email` + `netbird_owner_password` are set in the vault, the
-play creates the first owner automatically. Otherwise open
-`https://<domain>/setup` in a browser and create it there — that page only works
-while the instance has no accounts.
+When `netbird_owner_email` is set in the vault, the play creates the first owner
+automatically through `/api/setup`; if `netbird_owner_password` is empty, one is
+generated into the encrypted `vault_generated.yml`. With no email, open
+`https://<domain>/setup` in a browser and create the owner there — that page only
+works while the instance has no accounts (a password set without an email is
+ignored and logs a warning).
 
 Set `netbird_setup_pat_enabled: true` and `netbird_owner_create_pat: true` to
 also receive a one-time Personal Access Token, written to
