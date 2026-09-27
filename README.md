@@ -56,7 +56,7 @@ make ans-site
 ```
 
 Deploys run as a **non-root service account** (`playbooks/site.yml` refuses root
-unless `netbird_allow_root_login=true`). Create it once, as root:
+unless `host_allow_root_login=true`). Create it once, as root:
 
 ```bash
 # once, before the first deploy (creates the 'ansible' account + sudo):
@@ -170,7 +170,7 @@ the variables are set, and touches nothing in the deploy baseline:
 
 ```yaml
 # inventory/host_vars/<host>/main.yml
-netbird_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
+host_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
 docker_registry_mirrors:
   - "https://docker.1ms.run"
 ```

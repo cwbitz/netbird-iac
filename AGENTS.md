@@ -75,8 +75,8 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
 - `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` and
   `inventory/host_vars/<name>/` from the committed `example/` template.
 - `make host-bootstrap` — **optional, opt-in** host tuning (not part of
-  `ans-site`): set a Debian APT mirror (`netbird_apt_mirror` +
-  `netbird_apt_security_mirror`) and/or Docker Hub mirrors
+  `ans-site`): set a Debian APT mirror (`host_apt_mirror` +
+  `host_apt_security_mirror`) and/or Docker Hub mirrors
   (`docker_registry_mirrors`) for region-restricted hosts (e.g. China VPS). No-op
   unless those vars are set.
 - `make ans-lint` — `--syntax-check` + `ansible-lint`.

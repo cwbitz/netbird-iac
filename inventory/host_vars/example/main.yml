@@ -82,8 +82,8 @@ netbird_owner_create_pat: false
 # Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
 # China-based VPS). This playbook is opt-in and NOT part of make ans-site.
 # Debian-family APT mirror (security mirror derived automatically; override
-# with netbird_apt_security_mirror if your mirror doesn't follow the pattern):
-# netbird_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
+# with host_apt_security_mirror if your mirror doesn't follow the pattern):
+# host_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
 # Docker Hub registry mirrors (tried in order):
 # docker_registry_mirrors:
 #   - "https://docker.1ms.run"
@@ -92,6 +92,6 @@ netbird_owner_create_pat: false
 # vault_<id>_ssh_pubkey_file is set, the public key at that path is authorized
 # for the matching account (unset -> ignored, never generated). The ansible
 # pubkey also switches the service account to key auth; otherwise a password is
-# set (netbird_bootstrap_password, else generated into the encrypted vault). The
+# set (host_bootstrap_password, else generated into the encrypted vault). The
 # matching private key path is set explicitly in the same vault
 # (vault_<id>_ssh_privkey_file). Only paths are accepted, never raw key strings.

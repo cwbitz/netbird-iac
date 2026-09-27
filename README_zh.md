@@ -36,7 +36,7 @@ make ans-lint && make ans-check && make ans-site
 ```
 
 部署以**非 root 服务账号**执行（`site.yml` 默认拒绝 root，除非
-`netbird_allow_root_login=true`）。首次以 root 创建一次：
+`host_allow_root_login=true`）。首次以 root 创建一次：
 
 ```bash
 make host-bootstrap      # 创建 ansible 账号 + sudo
@@ -134,7 +134,7 @@ VPS。变量未设置时是 no-op，且不动部署基线：
 
 ```yaml
 # inventory/host_vars/<host>/main.yml
-netbird_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
+host_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
 docker_registry_mirrors:
   - "https://docker.1ms.run"
 ```
