@@ -1,0 +1,11 @@
+---
+# Vault-free inventory for CI lint / syntax-check only. The playbooks guard
+# every variable lookup with `| default(...)`, so a single placeholder host is
+# enough and no host_vars (and therefore no encrypted vault) are loaded.
+# CI never connects to it (lint / syntax-check only).
+all:
+  children:
+    netbird:
+      hosts:
+        ci-placeholder:
+          ansible_host: "192.0.2.10"

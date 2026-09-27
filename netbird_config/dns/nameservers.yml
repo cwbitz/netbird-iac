@@ -1,0 +1,20 @@
+---
+# ==============================================================================
+# DNS nameserver groups (desired state). Matches Dashboard: DNS > Nameservers.
+# Use plain group names; the collection resolves them to IDs.
+# Reference: https://docs.netbird.io/api/resources/dns
+# ==============================================================================
+netbird_dns_nameserver_groups: []
+  # - name: "internal-dns"
+  #   description: "Internal DNS resolution"
+  #   nameservers:
+  #     - ip: "10.0.0.53"
+  #       ns_type: "udp"
+  #       port: 53
+  #   groups:
+  #     - personal
+  #   domains:
+  #     - "internal.example.com"
+  #   enabled: true
+  #   primary: false
+  #   state: present

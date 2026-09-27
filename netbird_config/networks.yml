@@ -1,0 +1,24 @@
+---
+# ==============================================================================
+# Networks with routers and resources (desired state).
+# Replaces the deprecated routes API. Depend on groups.
+# Router "peer" accepts a peer NAME (resolved to an ID; fails loudly if unknown).
+# Use plain group names in resources.
+# Reference: https://docs.netbird.io/api/resources/networks
+# ==============================================================================
+netbird_networks: []
+  # - name: "internal-network"
+  #   description: "Route traffic to the LAN behind a gateway peer"
+  #   routers:
+  #     - peer: "gateway"            # peer name
+  #       metric: 100
+  #       masquerade: true
+  #       enabled: true
+  #   resources:
+  #     - address: "192.168.1.0/24"
+  #       name: "home-lan"
+  #       description: "Home LAN"
+  #       enabled: true
+  #       groups:
+  #         - personal
+  #   state: present

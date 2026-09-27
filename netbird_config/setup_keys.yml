@@ -1,0 +1,16 @@
+---
+# ==============================================================================
+# Setup keys (desired state). Used for peer enrollment.
+# Key secrets are returned only at creation and cannot be retrieved later; store
+# them in a secret manager.
+# auto_groups use plain names (resolved to IDs automatically).
+# ==============================================================================
+netbird_setup_keys: []
+  # - name: "server-enrollment"
+  #   key_type: "reusable"         # one-off or reusable
+  #   expires_in: 604800           # 7 days (seconds)
+  #   auto_groups:
+  #     - personal
+  #   usage_limit: 0               # 0 = unlimited (reusable only)
+  #   ephemeral: false
+  #   state: present

@@ -1,0 +1,12 @@
+---
+# ==============================================================================
+# Shared group defaults for the NetBird server hosts
+# (inventory/group_vars/netbird/main.yml)
+# ==============================================================================
+# Cross-host tunables with a safe default. Per-host overrides belong in
+# inventory/host_vars/<hostname>/main.yml; image and behaviour defaults belong
+# in roles/netbird_server/defaults/main.yml.
+
+# Directory on the target host that holds the rendered stack (docker-compose.yml,
+# config.yaml, dashboard.env) and the Docker named volume backing the data.
+netbird_stack_dir: "/opt/netbird"

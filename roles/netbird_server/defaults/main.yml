@@ -1,0 +1,55 @@
+---
+# ==============================================================================
+# Role defaults (roles/netbird_server/defaults/main.yml)
+# ==============================================================================
+# Every container tag is rendered through the *_version vars below so Renovate
+# can keep them current (see the # renovate: annotation above each var).
+
+# --- Container images --------------------------------------------------------
+netbird_server_image: "netbirdio/netbird-server"
+# renovate: datasource=docker depName=netbirdio/netbird-server
+netbird_server_version: "0.79.0"
+
+netbird_dashboard_image: "netbirdio/dashboard"
+# Upstream publishes the dashboard only as moving tags (latest / sha-* / pr-*),
+# so there is no immutable version to pin. Renovate cannot help here.
+netbird_dashboard_version: "latest"
+
+netbird_traefik_image: "traefik"
+# renovate: datasource=docker depName=traefik
+netbird_traefik_version: "v3.7.13"
+
+# --- Network -----------------------------------------------------------------
+netbird_network_name: "netbird"
+netbird_network_subnet: "172.30.0.0/24"
+netbird_network_gateway: "172.30.0.1"
+netbird_traefik_ip: "172.30.0.10"
+
+# --- Volumes -----------------------------------------------------------------
+# Explicit names so the data volume is stable regardless of the compose project
+# directory (docker compose would otherwise prefix it with the project name).
+netbird_data_volume_name: "netbird_data"
+netbird_traefik_certs_volume_name: "netbird_traefik_letsencrypt"
+
+# --- Ports / endpoint --------------------------------------------------------
+netbird_http_protocol: "https"
+netbird_exposed_port: 443
+netbird_stun_port: 3478
+
+# --- Server behaviour --------------------------------------------------------
+netbird_log_level: "info"
+
+# Skip the GeoLite2 database download at startup. The download requires outbound
+# access to pkgs.netbird.io and blocks server startup until it finishes; set
+# true on air-gapped / network-restricted hosts (disables geo-based posture
+# checks). Upstream default is false.
+netbird_disable_geolite_update: false
+
+# Extra management addresses trusted to speak for the reverse proxy (external
+# proxy setups). Empty for the built-in Traefik (which is covered by
+# netbird_traefik_ip). Example: ["203.0.113.20/32"].
+netbird_trusted_peers: []
+
+# Allow the first-owner bootstrap to request a one-time Personal Access Token
+# through /api/setup. Only meaningful before the first account exists.
+netbird_setup_pat_enabled: false

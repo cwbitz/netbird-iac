@@ -1,0 +1,22 @@
+---
+# ==============================================================================
+# NetBird account settings (desired state).
+# Matches the NetBird Dashboard: Settings. Applied first (no dependencies).
+# Reference: https://docs.netbird.io/api/resources/accounts
+# ------------------------------------------------------------------------------
+# Only uncomment keys you want to manage. Omitted keys are left untouched.
+# ==============================================================================
+netbird_settings: {}
+  # peer_login_expiration_enabled: true
+  # peer_login_expiration: 604800            # 7 days (seconds)
+  # peer_inactivity_expiration_enabled: true
+  # peer_inactivity_expiration: 2592000      # 30 days (seconds)
+  # jwt_groups_enabled: true
+  # jwt_groups_claim_name: "groups"
+  # jwt_allow_groups: []
+  # routing_peer_dns_resolution_enabled: true
+  # dns_domain: "netbird.example.com"
+  # auto_update_always: true
+  # peer_expose_enabled: true
+  # extra_peer_approval_enabled: false
+  # extra_network_traffic_logs_enabled: true

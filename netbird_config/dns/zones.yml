@@ -1,0 +1,18 @@
+---
+# ==============================================================================
+# DNS zones with records (desired state). Matches Dashboard: DNS > Zones.
+# Use plain group names in distribution_groups.
+# Reference: https://docs.netbird.io/api/resources/dns-zones
+# ==============================================================================
+netbird_dns_zones: []
+  # - name: "office"
+  #   domain: "office.example.com"
+  #   enabled: true
+  #   distribution_groups:
+  #     - personal
+  #   records:
+  #     - name: "server1.office.example.com"
+  #       type: "A"
+  #       content: "10.0.1.1"
+  #       ttl: 300
+  #   state: present

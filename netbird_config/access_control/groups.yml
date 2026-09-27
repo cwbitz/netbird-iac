@@ -1,0 +1,12 @@
+---
+# ==============================================================================
+# Groups (desired state). Matches the Dashboard: Access Control > Groups.
+# Use plain group names; the collection resolves them to IDs automatically.
+# Do NOT include the auto-managed "All" group.
+# Reference: https://docs.netbird.io/api/resources/groups
+# ==============================================================================
+netbird_groups:
+  - name: "personal"
+    state: present
+  - name: "guests"
+    state: present

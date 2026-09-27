@@ -1,0 +1,29 @@
+# mise project config (https://mise.jdx.dev).
+#
+# Tool VERSIONS live in `.tool-versions` (single source of truth) so asdf and
+# other asdf-compatible managers work too; mise reads that file natively. This
+# file therefore has NO [tools] section — never repeat the pins here.
+#
+# Usage:
+#   mise install     # install the pinned toolchain from .tool-versions
+#   mise tasks       # list the shortcuts below
+#   mise run lint    # etc.
+#
+# Every task is a thin wrapper around the Makefile (the single implementation),
+# so `make ...` and `mise run ...` always do exactly the same thing.
+
+[tasks.lint]
+description = "Syntax check + ansible-lint (make ans-lint)"
+run = "make ans-lint"
+
+[tasks.deps]
+description = "Install the pinned toolchain + collections (make ans-deps)"
+run = "make ans-deps"
+
+[tasks.check]
+description = "Dry-run the site playbook (make ans-check)"
+run = "make ans-check"
+
+[tasks.deploy]
+description = "Deploy the NetBird self-hosted server (make ans-site)"
+run = "make ans-site"

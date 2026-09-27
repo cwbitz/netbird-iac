@@ -1,0 +1,78 @@
+---
+# ==============================================================================
+# Per-host secrets schema (inventory/host_vars/example/vault.yml.example)
+# ==============================================================================
+# Copy this to inventory/host_vars/<hostname>/vault.yml, fill in the real values,
+# then encrypt it:
+#
+#   cp inventory/host_vars/example/vault.yml.example \
+#      inventory/host_vars/<hostname>/vault.yml
+#   ansible-vault encrypt inventory/host_vars/<hostname>/vault.yml
+#
+# The real vault.yml is gitignored and NEVER committed (even encrypted).
+# Role-generated secrets are written to an encrypted
+# inventory/host_vars/<hostname>/vault_generated.yml on first deploy.
+#
+# The vault password is read from
+# ~/.config/projects/netbird-iac/ansible_vault_password
+# (pointed to by ansible.cfg; `make ans-vault-init` creates a random one).
+# ==============================================================================
+
+# --- Topology (single host; referenced from inventory/hosts.yml) --------------
+vault_host:
+  ip: "203.0.113.10"
+  port: 22
+
+# --- SSH connection identity -------------------------------------------------
+# `make host-bootstrap` probes [ansible, admin, root] and uses the first that
+# works; normal runs always use `ansible`. Each identity may set a password
+# AND/OR a private key file (SSH prefers the key, then falls back to password).
+# No become/sudo-password vars: the ansible account gets NOPASSWD sudo.
+vault_root_user: "root"
+vault_root_password: ""
+vault_root_ssh_privkey_file: "~/.ssh/id_ed25519"
+vault_root_ssh_pubkey_file: ""
+vault_admin_user: "admin"
+vault_admin_password: ""
+vault_admin_ssh_privkey_file: ""
+vault_admin_ssh_pubkey_file: ""
+# The ansible identity is the service account host-bootstrap authorizes:
+# vault_ansible_ssh_pubkey_file (control-node path to the public key) is
+# installed on it, and vault_ansible_ssh_privkey_file is the matching private
+# key path the control node connects with — both specified explicitly here, side
+# by side, never derived from one another. Only paths are accepted, never raw
+# key strings.
+vault_ansible_user: "ansible"
+vault_ansible_password: ""
+vault_ansible_ssh_privkey_file: "~/.ssh/netbird_ansible_ed25519"
+vault_ansible_ssh_pubkey_file: ""
+
+# --- Public endpoint ---------------------------------------------------------
+vault_domain_name: "netbird.example.com"
+vault_letsencrypt_email: "admin@example.com"
+
+# --- Optional first-owner bootstrap ------------------------------------------
+# The owner is a local user; the email must be a valid email address (it need
+# not match the deployment domain). Fill these to auto-create the first owner;
+# leave empty to onboard manually at https://<domain>/setup.
+vault_owner_email: ""
+vault_owner_name: ""
+vault_owner_password: ""
+
+# --- Tenant config-as-code PAT -----------------------------------------------
+# Personal Access Token (Personal Access Tokens) used by playbooks/tenant.yml.
+# Leave empty until you are ready to manage tenant resources.
+vault_pat: ""
+
+# ==============================================================================
+# Role-generated secrets (written to vault_generated.yml, never set these here)
+# ==============================================================================
+# On first deploy the role generates and persists, per host:
+#   vault_datastore_encryption_key              at-rest data encryption key
+#   vault_relay_auth_secret                     relay auth secret (base64)
+#   vault_session_cookie_encryption_key         session cookie encryption key
+#   vault_ansible_password                      the service account password
+#                                               (only when no public key is given)
+# Existing non-empty values are preserved on later runs (never rotated).
+# Include vault_generated.yml in your backup/restore procedure: losing
+# datastore encryption key data makes encrypted user data unrecoverable.

@@ -1,0 +1,7 @@
+---
+# ==============================================================================
+# DNS settings (desired state). Matches Dashboard: DNS > DNS Settings.
+# Use plain group names.
+# ==============================================================================
+netbird_dns_disabled_management_groups: []
+  # - special-group

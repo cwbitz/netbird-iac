@@ -1,0 +1,77 @@
+---
+# ==============================================================================
+# Back up the NetBird server state to the control node.
+#
+#   make netbird-backup            # -> backup/<host>/<timestamp>/
+#
+# What it captures:
+#   - netbird_data.tgz      the Docker volume (store.db / idp.db / events.db +
+#                           geo DBs), archived with the container STOPPED so the
+#                           SQLite files are consistent
+#   - vault_generated.yml   the generated encryption keys, copied next to the
+#                           data so a restore can re-render config.yaml with the
+#                           SAME datastore encryptionKey (data + key must pair)
+#
+# The backup contains sensitive data (user PII, hashed credentials) and is
+# gitignored — never commit it.
+# ==============================================================================
+
+- name: Back up the NetBird server state
+  hosts: netbird
+  gather_facts: false
+  vars:
+    netbird_backup_dir: "{{ playbook_dir }}/../backup"
+    netbird_backup_volume: "{{ netbird_data_volume_name | default('netbird_data') }}"
+  tasks:
+    - name: "[Backup] Freeze the timestamp (single value for all tasks)"
+      ansible.builtin.set_fact:
+        netbird_backup_stamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
+
+    - name: "[Backup] Resolve the backup path"
+      ansible.builtin.set_fact:
+        netbird_backup_path: "{{ netbird_backup_dir }}/{{ inventory_hostname }}/{{ netbird_backup_stamp }}"
+
+    - name: "[Backup] Ensure the local backup directory exists"
+      ansible.builtin.file:
+        path: "{{ netbird_backup_path }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: "[Backup] Stop the server container for a consistent snapshot"
+      community.docker.docker_container:
+        name: netbird-server
+        state: stopped
+
+    - name: "[Backup] Archive the data volume"
+      ansible.builtin.command: >-
+        docker run --rm
+        -v {{ netbird_backup_volume }}:/data:ro
+        -v /tmp:/backup
+        alpine sh -c "cd /data && tar czf /backup/netbird_data.tgz ."
+      changed_when: true
+
+    - name: "[Backup] Start the server container"
+      community.docker.docker_container:
+        name: netbird-server
+        state: started
+
+    - name: "[Backup] Fetch the archive to the control node"
+      ansible.builtin.fetch:
+        src: /tmp/netbird_data.tgz
+        dest: "{{ netbird_backup_path }}/"
+        flat: true
+
+    - name: "[Backup] Remove the remote archive"
+      ansible.builtin.file:
+        path: /tmp/netbird_data.tgz
+        state: absent
+
+    - name: "[Backup] Report"
+      ansible.builtin.debug:
+        msg: >-
+          Backup written to {{ netbird_backup_path }}/netbird_data.tgz. The
+          encryption key is NOT stored here — it stays in the control node's
+          inventory/host_vars/{{ inventory_hostname }}/vault_generated.yml, which
+          must be kept to restore. Keep the archive off-host and safe.

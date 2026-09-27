@@ -1,0 +1,86 @@
+---
+# ==============================================================================
+# Per-host configuration template (inventory/host_vars/example/main.yml)
+# ==============================================================================
+# Copy this to inventory/host_vars/<hostname>/main.yml for every host you manage
+# (one directory per host). This example/ folder is the only committed content
+# under host_vars/; every real <hostname>/ directory is gitignored.
+#
+# THE single per-host variable file the user maintains. Real secrets stay in the
+# encrypted vault.yml next to this file; role-generated secrets are written to
+# the encrypted vault_generated.yml next to it.
+
+# --- Topology ----------------------------------------------------------------
+# ansible_host comes from hosts.yml; the port comes from the per-host topology
+# map in vault.yml (flat: vault_host = {ip, port}).
+ansible_port: "{{ vault_host.port | default(22) }}"
+
+# --- SSH connection identity -------------------------------------------------
+# `host-bootstrap` probes [ansible, admin, root] and uses the first that works.
+# Normal runs (site/tenant/backup) always use `ansible`. For each identity you
+# may provide a password AND/OR a private key; when both are set SSH tries the
+# key first, then falls back to the password.
+netbird_ssh_identities:
+  root:
+    user: "{{ vault_root_user | default('root') }}"
+    password: "{{ vault_root_password | default('') }}"
+    privkey: "{{ vault_root_ssh_privkey_file | default('') }}"
+    become: false
+  admin:
+    user: "{{ vault_admin_user | default('admin') }}"
+    password: "{{ vault_admin_password | default('') }}"
+    privkey: "{{ vault_admin_ssh_privkey_file | default('') }}"
+    become: true
+  ansible:
+    user: "{{ vault_ansible_user | default('ansible') }}"
+    password: "{{ vault_ansible_password | default('') }}"
+    privkey: "{{ vault_ansible_ssh_privkey_file | default('') }}"
+    become: true
+
+netbird_identity: "{{ netbird_ssh_identities['ansible'] }}"
+ansible_user: "{{ netbird_identity.user }}"
+ansible_password: "{{ netbird_identity.password }}"
+ansible_ssh_private_key_file: "{{ netbird_identity.privkey }}"
+ansible_become: "{{ netbird_identity.become }}"
+# Prefer key, then password, at the SSH layer (single password prompt max).
+ansible_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+
+# --- Public endpoint (aliases over vault) ------------------------------------
+# The FQDN the server is reachable at; its A record must point at this host and
+# ports 80/443 TCP + 3478 UDP must be open. Used as the OIDC issuer, the
+# dashboard host and the TLS certificate subject.
+netbird_domain: "{{ vault_domain_name }}"
+netbird_letsencrypt_email: "{{ vault_letsencrypt_email }}"
+
+# --- Optional first-owner bootstrap ------------------------------------------
+# When netbird_owner_email + netbird_owner_password are set, the role creates the
+# first owner through the unauthenticated /api/setup endpoint (only works while
+# the instance has no accounts). Leave empty to do the onboarding manually via
+# the browser /setup page instead.
+netbird_owner_email: "{{ vault_owner_email | default('') }}"
+netbird_owner_name: "{{ vault_owner_name | default('') }}"
+netbird_owner_password: "{{ vault_owner_password | default('') }}"
+# Request a one-time Personal Access Token during setup (requires
+# netbird_setup_pat_enabled: true). The token is written to
+# ~/.config/projects/netbird-iac/<host>.setup_pat on the control node.
+netbird_owner_create_pat: false
+
+# [OPTIONAL] Skip the startup GeoLite2 download (needs outbound access to
+# pkgs.netbird.io; set true on air-gapped/slow-CDN hosts — see AGENTS.md).
+# netbird_disable_geolite_update: true
+
+# --- Optional host bootstrap (make host-bootstrap) ---------------------------
+# Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
+# China-based VPS). This playbook is opt-in and NOT part of make ans-site.
+# Debian-family APT mirror (security mirror derived automatically; override
+# with netbird_apt_security_mirror if your mirror doesn't follow the pattern):
+# netbird_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
+# Docker Hub registry mirrors (tried in order):
+# docker_registry_mirrors:
+#   - "https://docker.1ms.run"
+# make host-bootstrap probes [ansible, admin, root] and creates the 'ansible'
+# service account when not already connected as it. Authorize the public key at
+# the path recorded in the vault (vault_ansible_ssh_pubkey_file); otherwise a
+# password is set (netbird_bootstrap_password, else generated into the encrypted
+# vault). The matching private key path is set explicitly in the same vault
+# (vault_ansible_ssh_privkey_file). Only paths are accepted, never raw key strings.

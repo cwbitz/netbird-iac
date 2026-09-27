@@ -1,0 +1,245 @@
+---
+# ==============================================================================
+# Task: Deploy the self-hosted NetBird server
+# (roles/netbird_server/tasks/main.yml)
+# ==============================================================================
+# Deploys the current combined NetBird server container (Management + Signal +
+# Relay + STUN) with an embedded Dex IdP, the dashboard, and a built-in Traefik
+# reverse proxy that issues Let's Encrypt certificates via the TLS-ALPN
+# challenge. Mirrors the layout produced by the upstream getting-started.sh
+# quickstart script, but idempotently and version-controlled.
+
+# ------------------------------------------------------------------------------
+# Preflight (advisory / required checks)
+# ------------------------------------------------------------------------------
+- name: "[NetBird] Assert the required inputs are set"
+  tags: [netbird, netbird_preflight]
+  ansible.builtin.assert:
+    that:
+      - netbird_domain is defined and (netbird_domain | string | trim) | length > 0
+      - netbird_domain != 'netbird.example.com'
+      - netbird_domain is not match('^https?://')
+      - netbird_letsencrypt_email is defined and (netbird_letsencrypt_email | string | trim) | length > 0
+    fail_msg: >-
+      Set netbird_domain (an FQDN whose A record points at this host, without a
+      scheme) and netbird_letsencrypt_email in
+      inventory/host_vars/<hostname>/main.yml / vault.yml. See
+      inventory/host_vars/example/.
+  run_once: true
+  delegate_to: localhost
+  become: false
+
+- name: "[NetBird] Check Docker Engine and the Compose v2 plugin on the host"
+  tags: [netbird, netbird_preflight]
+  ansible.builtin.command: docker compose version
+  register: netbird_compose_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: "[NetBird] Fail early if Docker Engine + Compose v2 are missing"
+  tags: [netbird, netbird_preflight]
+  ansible.builtin.assert:
+    that:
+      - netbird_compose_check.rc == 0
+    fail_msg: >-
+      Docker Engine with the Compose v2 plugin is required on
+      {{ inventory_hostname }} but was not found. Install Docker from
+      https://docs.docker.com/engine/install/ and re-run; this project never
+      installs Docker itself.
+  when: not ansible_check_mode
+
+- name: "[NetBird] Resolve the public domain from the control node (advisory)"
+  tags: [netbird, netbird_preflight]
+  ansible.builtin.command: "getent hosts {{ netbird_domain }}"
+  register: netbird_dns_check
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: localhost
+  become: false
+
+- name: "[NetBird] Warn when the domain does not resolve"
+  tags: [netbird, netbird_preflight]
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: '{{ netbird_domain }}' does not resolve from the control node.
+      Point its A record at this host and open TCP 80/443 and UDP 3478 before
+      TLS issuance and client connections can succeed.
+  when: netbird_dns_check.rc | default(1) != 0
+
+# ------------------------------------------------------------------------------
+# Per-host secrets (idempotent) via the shared helper. Generates the crypto
+# material the combined server needs and persists it in the encrypted per-host
+# vault file (inventory/host_vars/<hostname>/vault_generated.yml):
+#   vault_relay_auth_secret
+#   vault_datastore_encryption_key
+#   vault_session_cookie_encryption_key
+# Existing non-empty secrets are preserved (never rotated).
+# ------------------------------------------------------------------------------
+- name: "[NetBird] Provision per-host secrets in the encrypted vault"
+  tags: [netbird]
+  ansible.builtin.include_role:
+    name: helpers
+    tasks_from: vault_secrets_dispatch
+  vars:
+    vault_secrets_component: "netbird_server"
+    vault_secrets_vault_file: "vault_generated.yml"
+    vault_secrets_list:
+      - var: "vault_relay_auth_secret"
+        type: "base64"
+        length: 32
+      - var: "vault_datastore_encryption_key"
+        type: "base64"
+        length: 32
+      - var: "vault_session_cookie_encryption_key"
+        type: "base64"
+        length: 32
+
+# ------------------------------------------------------------------------------
+# Render the stack
+# ------------------------------------------------------------------------------
+- name: "[NetBird] Ensure the stack directory exists"
+  tags: [netbird, netbird_config]
+  ansible.builtin.file:
+    path: "{{ netbird_stack_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: "[NetBird] Render config.yaml (combined server)"
+  tags: [netbird, netbird_config]
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ netbird_stack_dir }}/config.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: "[NetBird] Restart the stack"
+
+- name: "[NetBird] Render dashboard.env"
+  tags: [netbird, netbird_config]
+  ansible.builtin.template:
+    src: dashboard.env.j2
+    dest: "{{ netbird_stack_dir }}/dashboard.env"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: "[NetBird] Restart the stack"
+
+- name: "[NetBird] Render docker-compose.yml"
+  tags: [netbird, netbird_config]
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ netbird_stack_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+# ------------------------------------------------------------------------------
+# Deploy
+# ------------------------------------------------------------------------------
+- name: "[NetBird] Deploy the NetBird server stack"
+  tags: [netbird, netbird_deploy]
+  community.docker.docker_compose_v2:
+    project_src: "{{ netbird_stack_dir }}"
+    state: present
+    remove_orphans: true
+
+# ------------------------------------------------------------------------------
+# Readiness: wait for the embedded IdP discovery endpoint to answer over the
+# public TLS endpoint (this also drives Let's Encrypt certificate issuance).
+# ------------------------------------------------------------------------------
+- name: "[NetBird] Wait for the server to answer over TLS"
+  tags: [netbird, netbird_deploy]
+  ansible.builtin.uri:
+    url: "https://{{ netbird_domain }}/oauth2/.well-known/openid-configuration"
+    validate_certs: true
+    status_code: 200
+  register: netbird_ready
+  until: netbird_ready is succeeded
+  retries: 60
+  delay: 5
+  changed_when: false
+  when: not ansible_check_mode
+
+# ------------------------------------------------------------------------------
+# Optional first-owner bootstrap. /api/setup is unauthenticated and only works
+# while no account exists; on later runs it is skipped.
+# ------------------------------------------------------------------------------
+- name: "[NetBird] Check whether instance setup is still required"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.uri:
+    url: "https://{{ netbird_domain }}/api/instance"
+    validate_certs: true
+    return_content: true
+  register: netbird_instance
+  failed_when: false
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - netbird_owner_email | default('') | length > 0
+
+- name: "[NetBird] Create the first owner user via the setup API"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.uri:
+    url: "https://{{ netbird_domain }}/api/setup"
+    method: POST
+    body_format: json
+    validate_certs: true
+    return_content: true
+    status_code: [200]
+    body: >-
+      {{ {'email': netbird_owner_email,
+          'name': netbird_owner_name | default(netbird_owner_email.split('@') | first),
+          'password': netbird_owner_password}
+         | combine({'create_pat': true, 'pat_expire_in': 7}
+                   if netbird_owner_create_pat | bool else {}) }}
+  register: netbird_setup_result
+  no_log: true
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - netbird_owner_email | default('') | length > 0
+    - netbird_owner_password | default('') | length > 0
+    - netbird_instance is defined
+    - netbird_instance.json is defined
+    - netbird_instance.json.setup_required | default(false) | bool
+
+- name: "[NetBird] Ensure the control-node secrets directory exists"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.file:
+    path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/projects/netbird-iac"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  when:
+    - netbird_setup_result is defined
+    - netbird_setup_result.json.personal_access_token is defined
+
+- name: "[NetBird] Persist the one-time setup PAT outside the repo (0600)"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.copy:
+    content: "{{ netbird_setup_result.json.personal_access_token }}"
+    dest: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/projects/netbird-iac/{{ inventory_hostname }}.setup_pat"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  no_log: true
+  when:
+    - netbird_setup_result is defined
+    - netbird_setup_result.json.personal_access_token is defined
+
+- name: "[NetBird] Report where the setup PAT was written"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.debug:
+    msg: >-
+      One-time setup PAT written to
+      ~/.config/projects/netbird-iac/{{ inventory_hostname }}.setup_pat.
+      Store it in a secret manager; it is shown only once.
+  when:
+    - netbird_setup_result is defined
+    - netbird_setup_result.json.personal_access_token is defined

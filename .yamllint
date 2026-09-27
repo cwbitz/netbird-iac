@@ -1,0 +1,7 @@
+---
+# Local yamllint overrides on top of ansible-lint's internal config.
+# The project convention is: every file ends with a single trailing newline
+# (no trailing blank line).
+rules:
+  empty-lines:
+    max-end: 0

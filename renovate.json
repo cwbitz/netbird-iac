@@ -1,0 +1,82 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "osvVulnerabilityAlerts": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Image tags flow through role-default *_version vars (see the # renovate: annotation above each var)",
+      "managerFilePatterns": [
+        "/^roles\\/[^/]+\\/defaults\\/main\\.yml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+\\w+_version:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}docker{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Control-node toolchain pins in .tool-versions (asdf/mise single source of truth); python is handled by the built-in asdf manager",
+      "managerFilePatterns": [
+        "/(^|/)\\.tool-versions$/"
+      ],
+      "matchStrings": [
+        "ansible-core (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "ansible/ansible"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Toolchain / CI dependencies: manual review, never automerge",
+      "matchManagers": [
+        "mise",
+        "asdf",
+        "pip_requirements",
+        "ansible-galaxy",
+        "github-actions"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "NetBird server image: stateful control plane, always manual review",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "netbirdio/netbird-server",
+        "netbirdio/dashboard"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "Traefik edge proxy: automerge patch updates only",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "traefik"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "digest",
+        "pin"
+      ],
+      "automerge": true
+    }
+  ]
+}

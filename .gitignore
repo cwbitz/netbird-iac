@@ -1,0 +1,60 @@
+# ==============================================================================
+# Git Ignore Configuration for the NetBird self-hosted IaC project
+# ==============================================================================
+
+# Local persistent fact cache directory (contains sensitive infrastructure details)
+.ansible_cache/
+
+# Local backups of server state (contain user PII / hashed credentials / the key)
+backup/
+
+# Execution retry files generated upon task failures
+*.retry
+
+# Master Vault password files used for local decryption
+.vault_password*
+*.vault_password
+.vault_ansible_password*
+*.ansible_vault_password
+.vault_pass*
+*.vault_pass
+
+# Ignore ALL Ansible Vault credential/secret files recursively.
+# This covers:
+#   - inventory/host_vars/<hostname>/vault.yml           (user-set real secrets)
+#   - inventory/host_vars/<hostname>/vault_generated.yml (role-generated secrets)
+# The committed schema reference is
+# inventory/host_vars/example/vault.yml.example.
+# NEVER commit a vault*.yml file (even encrypted) to eliminate brute-force risk.
+# Scoped to vault.yml + vault_*.yml (NOT vault*.yml) so application task files
+# like roles/netbird_server/tasks/*_tasks.yml stay trackable.
+**/vault.yml
+**/vault_*.yml
+# ...but role task files whose names start with vault_ are source, not secrets
+# (e.g. roles/helpers/tasks/vault_secrets_dispatch.yml).
+!roles/**/vault_*.yml
+
+# Real per-host inventory is local-only: each real host has its own
+# inventory/host_vars/<hostname>/ directory. Only the example/ template folder
+# is committed; every real node directory stays out of git.
+inventory/host_vars/*
+!inventory/host_vars/example/
+
+# The real inventory (real hostnames) is local-only; the committed template is
+# inventory/hosts.yml.example.
+inventory/hosts.yml
+
+# Project-local Ansible runtime environment (collections/modules/roles installed
+# via ansible-galaxy into .ansible/). Never commit installed collections.
+.ansible/
+
+# Rendered per-stack config may contain rendered secrets. Only the *.j2
+# templates are tracked here, but guard against a stray rendered copy anyway.
+**/config.yaml
+**/dashboard.env
+
+# Ansible Galaxy transient files (downloaded collection tarballs)
+galaxy-install-*.tmp
+
+# mise per-machine local overrides (project pin lives in the committed mise.toml)
+mise.local.toml
