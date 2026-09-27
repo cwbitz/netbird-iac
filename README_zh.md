@@ -53,8 +53,10 @@ ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）
 内联公钥字符串）。镜像源也在这里配置（见下）。
 
 vault 里填了 `netbird_owner_email` 时会通过 `/api/setup` 自动创建首个 owner；
-`netbird_owner_password` 留空则由角色生成并写入加密的 `vault_generated.yml`。
-不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何
+`netbird_owner_password` 留空则由角色生成并写入加密的 `vault_managed.yml`。
+该首次部署还会创建一个 `admin` service user、为它签发 Personal Access Token，
+存入 `vault_admin_service_user_access_token`（供 tenant 阶段使用），然后删除一次性的
+owner token。不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何
 账号时可用；只填密码而不填 email 不会生效，只会打印警告）。
 
 Tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、
@@ -100,7 +102,8 @@ make netbird-apply         # 应用期望状态
 make netbird-apply-strict  # 应用 + 删除未纳管资源
 ```
 
-需要 `vault_pat`（Dashboard → Settings → Personal Access Tokens）。
+需要 `vault_admin_service_user_access_token`（全新部署会自动创建；否则在
+Team → Service Users 建 `admin` service user 及其 access token）。
 可代码化范围：
 
 | 资源 | 可否代码化 | 说明 |

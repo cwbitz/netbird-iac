@@ -83,12 +83,11 @@ services:
       - netbird_data:/var/lib/netbird
       - ./config.yaml:/etc/netbird/config.yaml
     command: ["--config", "/etc/netbird/config.yaml"]
-{% if netbird_setup_pat_enabled | bool %}
     environment:
-      # Allows /api/setup to return a one-time Personal Access Token. Disable
-      # again once the first owner account exists.
+      # Allows /api/setup to return a one-time Personal Access Token used to
+      # bootstrap the 'admin' service user. Only effective before the first
+      # account exists; harmless afterwards.
       - NB_SETUP_PAT_ENABLED=true
-{% endif %}
     labels:
       - "traefik.enable=true"
       # gRPC router (h2c backend for HTTP/2 cleartext)

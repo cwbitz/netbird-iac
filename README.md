@@ -78,14 +78,13 @@ mirrors are configured (see below).
 
 When `netbird_owner_email` is set in the vault, the play creates the first owner
 automatically through `/api/setup`; if `netbird_owner_password` is empty, one is
-generated into the encrypted `vault_generated.yml`. With no email, open
+generated into the encrypted `vault_managed.yml`. On that first setup the play
+also creates an `admin` service user, mints a Personal Access Token for it,
+stores it as `vault_admin_service_user_access_token` (used by the tenant phase),
+and deletes the one-time owner token again. With no email, open
 `https://<domain>/setup` in a browser and create the owner there — that page only
 works while the instance has no accounts (a password set without an email is
 ignored and logs a warning).
-
-Set `netbird_setup_pat_enabled: true` and `netbird_owner_create_pat: true` to
-also receive a one-time Personal Access Token, written to
-`~/.config/projects/netbird-iac/<host>.setup_pat`.
 
 Tags: `netbird`, `netbird_preflight`, `netbird_config`, `netbird_deploy`,
 `netbird_owner`. Use `make ans-tags TAGS=netbird_config`.
@@ -133,8 +132,9 @@ make netbird-apply         # apply the desired state
 make netbird-apply-strict  # apply + remove unmanaged resources
 ```
 
-Requires `vault_pat` (Dashboard → Settings → Personal Access
-Tokens). What you can and cannot codify:
+Requires `vault_admin_service_user_access_token` (provisioned automatically on a
+fresh deploy; otherwise create an `admin` service user + token under
+Team → Service Users). What you can and cannot codify:
 
 | Resource | Codifiable? | Notes |
 |---|---|---|

@@ -12,7 +12,9 @@
 #   make netbird-apply         # apply
 #   make netbird-apply-strict  # apply + remove unmanaged resources
 #
-# Requires vault_pat (a Personal Access Token from the Dashboard).
+# Requires vault_admin_service_user_access_token (the 'admin' service-user PAT
+# provisioned by the server bootstrap; on older hosts the deprecated vault_pat is
+# still accepted as a fallback).
 # ==============================================================================
 
 - name: Apply NetBird tenant configuration as code
@@ -22,7 +24,7 @@
   vars:
     netbird_config_dir: "{{ playbook_dir }}/../netbird_config"
     netbird_api_url: "https://{{ netbird_domain }}"
-    netbird_api_token: "{{ vault_pat | default('') }}"
+    netbird_api_token: "{{ vault_admin_service_user_access_token | default(vault_pat | default('')) }}"
     netbird_validate_certs: true
     netbird_tenant_commit: false
     netbird_tenant_strict: false
@@ -36,9 +38,39 @@
         that:
           - netbird_api_token | length > 0
         fail_msg: >-
-          Set vault_pat in inventory/host_vars/<host>/vault.yml
-          (create a Personal Access Token in the NetBird Dashboard:
-          Settings -> Personal Access Tokens) and re-run.
+          Set vault_admin_service_user_access_token in
+          inventory/host_vars/<host>/vault.yml. On a fresh deploy it is created
+          automatically during the first-owner bootstrap; otherwise create an
+          'admin' service user and its Access Token in the NetBird Dashboard
+          (Team -> Service Users) and store it there. Re-run afterwards.
+
+    - name: "[Tenant] Probe the access token against the API"
+      ansible.builtin.uri:
+        url: "{{ netbird_api_url }}/api/users"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Token {{ netbird_api_token }}"
+        validate_certs: "{{ netbird_validate_certs }}"
+        status_code: [200, 401, 403]
+        return_content: false
+      register: netbird_token_probe
+      changed_when: false
+      no_log: true
+
+    - name: "[Tenant] Stop with recovery instructions when the token is rejected"
+      ansible.builtin.assert:
+        that:
+          - netbird_token_probe.status | default(0) == 200
+        fail_msg: >-
+          The NetBird access token was rejected (HTTP
+          {{ netbird_token_probe.status | default('n/a') }}). Personal Access
+          Tokens expire (NetBird caps them at 365 days) and cannot be renewed
+          once invalid. Recreate one: log in to the Dashboard as the owner
+          ({{ netbird_api_url }}), open Team -> Service Users -> 'admin' ->
+          Access Tokens -> Create Access Token, then store it as
+          vault_admin_service_user_access_token in
+          inventory/host_vars/{{ inventory_hostname }}/vault.yml and re-run.
 
     # --------------------------------------------------------------------------
     # Desired state: settings, groups, posture checks, setup keys, networks,

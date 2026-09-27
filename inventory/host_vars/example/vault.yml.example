@@ -59,21 +59,23 @@ vault_letsencrypt_email: "admin@example.com"
 # not match the deployment domain). Set the email to auto-create the first owner
 # via /api/setup; leave it empty to onboard manually at https://<domain>/setup.
 # The password is optional: leave it empty to have one generated into the
-# encrypted vault_generated.yml (set it here to choose your own). A password
+# encrypted vault_managed.yml (set it here to choose your own). A password
 # without an email has no effect (onboarding is manual) and logs a warning.
 vault_owner_email: ""
 vault_owner_name: ""
 vault_owner_password: ""
 
-# --- Tenant config-as-code PAT -----------------------------------------------
-# Personal Access Token (Personal Access Tokens) used by playbooks/tenant.yml.
-# Leave empty until you are ready to manage tenant resources.
-vault_pat: ""
+# --- Tenant config-as-code access token --------------------------------------
+# Personal Access Token of the 'admin' service user, used by playbooks/tenant.yml.
+# On a fresh deploy with an owner email set it is created automatically during
+# the first-owner bootstrap and written to vault_managed.yml (leave this empty).
+# On older hosts the deprecated vault_pat is still accepted as a fallback.
+vault_admin_service_user_access_token: ""
 
 # ==============================================================================
-# Role-generated secrets (written to vault_generated.yml, never set these here)
+# Automation-managed secrets (written to vault_managed.yml, never set these here)
 # ==============================================================================
-# On first deploy the role generates and persists, per host:
+# On first deploy the automation generates or provisions, per host:
 #   vault_datastore_encryption_key              at-rest data encryption key
 #   vault_relay_auth_secret                     relay auth secret (base64)
 #   vault_session_cookie_encryption_key         session cookie encryption key
@@ -82,8 +84,12 @@ vault_pat: ""
 #   vault_owner_password                        the first owner password (only
 #                                               when the owner email is set and
 #                                               no password is given here)
+#   vault_admin_service_user_access_token       the 'admin' service-user PAT
+#                                               (issued by NetBird during the
+#                                               first-owner bootstrap; expires —
+#                                               recreate it from the Dashboard)
 # Existing non-empty values are preserved on later runs (never rotated).
-# A generated value wins over an empty placeholder here; once generated, edit it
-# in vault_generated.yml (removing the key falls back to the value in this file).
-# Include vault_generated.yml in your backup/restore procedure: losing
+# A generated value wins over an empty placeholder here; once set, edit it in
+# vault_managed.yml (removing the key falls back to the value in this file).
+# Include vault_managed.yml in your backup/restore procedure: losing
 # datastore encryption key data makes encrypted user data unrecoverable.

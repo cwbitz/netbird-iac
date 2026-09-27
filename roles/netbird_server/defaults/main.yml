@@ -50,6 +50,8 @@ netbird_disable_geolite_update: false
 # netbird_traefik_ip). Example: ["203.0.113.20/32"].
 netbird_trusted_peers: []
 
-# Allow the first-owner bootstrap to request a one-time Personal Access Token
-# through /api/setup. Only meaningful before the first account exists.
-netbird_setup_pat_enabled: false
+# Expiration (days) of the Personal Access Token issued to the 'admin' service
+# user during the first-owner bootstrap. NetBird caps PATs at 365 days and they
+# cannot be renewed once invalid; when it expires, recreate it from the Dashboard
+# (the tenant run fails with instructions) — see AGENTS.md.
+netbird_admin_service_user_access_token_expire_in: 365

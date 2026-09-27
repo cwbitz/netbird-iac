@@ -63,16 +63,18 @@ netbird_letsencrypt_email: "{{ vault_letsencrypt_email }}"
 # When netbird_owner_email is set the role creates the first owner through the
 # unauthenticated /api/setup endpoint (only works while the instance has no
 # accounts). If netbird_owner_password is also set it is used; if it is empty a
-# password is generated into the encrypted vault_generated.yml. Leave the email
+# password is generated into the encrypted vault_managed.yml. Leave the email
 # empty to onboard manually at https://<domain>/setup (a password set without an
 # email is not applied and produces a warning).
+#
+# On that first setup the role also bootstraps the tenant automation credential
+# (fixed behaviour, no switch): it asks /api/setup for a short-lived owner access
+# token, creates an 'admin' service user and a Personal Access Token for it,
+# persists that token as vault_admin_service_user_access_token in
+# vault_managed.yml, then deletes the owner access token again.
 netbird_owner_email: "{{ vault_owner_email | default('') }}"
 netbird_owner_name: "{{ vault_owner_name | default('') }}"
 netbird_owner_password: "{{ vault_owner_password | default('') }}"
-# Request a one-time Personal Access Token during setup (requires
-# netbird_setup_pat_enabled: true). The token is written to
-# ~/.config/projects/netbird-iac/<host>.setup_pat on the control node.
-netbird_owner_create_pat: false
 
 # [OPTIONAL] Skip the startup GeoLite2 download (needs outbound access to
 # pkgs.netbird.io; set true on air-gapped/slow-CDN hosts — see AGENTS.md).

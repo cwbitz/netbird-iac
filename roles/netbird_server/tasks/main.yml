@@ -166,14 +166,23 @@
   when: not ansible_check_mode
 
 # ------------------------------------------------------------------------------
-# Optional first-owner bootstrap. /api/setup is unauthenticated and only works
-# while no account exists; on later runs it is skipped.
+# First-owner + tenant-credential bootstrap (fixed flow). /api/setup is
+# unauthenticated and only works while no account exists; on later runs it is
+# skipped. When it runs (netbird_owner_email set and setup still required):
+#   1. create the first owner (password from vault, else generated);
+#   2. request a short-lived owner access token (create_pat, 7 days);
+#   3. create the 'admin' service user and a Personal Access Token for it;
+#   4. persist that token as vault_admin_service_user_access_token in
+#      vault_managed.yml;
+#   5. delete the owner access token again.
+# With no owner email the owner is onboarded manually at /setup and no token
+# bootstrap happens. NOTE: the service-user token expires (NetBird PAT max 365
+# days) and cannot be renewed once invalid; on expiry recreate it from the
+# Dashboard (the tenant run fails with instructions) — see AGENTS.md.
 #
 # Owner password: when netbird_owner_email is set and the password is empty, a
-# password is generated and persisted in the encrypted vault_generated.yml (the
-# same pattern as the fallback ansible password). Set vault_owner_password in
-# vault.yml to choose your own. With no owner email the password is never applied
-# (onboarding is manual at /setup); supplying one anyway produces a warning.
+# password is generated and persisted in vault_managed.yml. Set
+# vault_owner_password in vault.yml to choose your own.
 # ------------------------------------------------------------------------------
 - name: "[NetBird] Provision an owner password (email set, no password supplied)"
   tags: [netbird, netbird_owner]
@@ -188,6 +197,19 @@
         type: "base64"
         length: 24
   when: netbird_owner_email | default('') | length > 0
+
+- name: "[NetBird] Notice: the first owner must be onboarded manually"
+  tags: [netbird, netbird_owner]
+  ansible.builtin.debug:
+    msg: >-
+      netbird_owner_email is empty, so the first owner is NOT created
+      automatically and no tenant API token is provisioned. Open
+      https://{{ netbird_domain }}/setup in a browser (that page only works while
+      the instance has no accounts), then create an 'admin' service user and an
+      Access Token under Team -> Service Users and set
+      vault_admin_service_user_access_token in vault.yml.
+  when:
+    - netbird_owner_email | default('') | length == 0
 
 - name: "[NetBird] Warn that a supplied owner password has no effect without an owner email"
   tags: [netbird, netbird_owner]
@@ -223,12 +245,12 @@
     validate_certs: true
     return_content: true
     status_code: [200]
-    body: >-
-      {{ {'email': netbird_owner_email,
-          'name': netbird_owner_name | default(netbird_owner_email.split('@') | first),
-          'password': netbird_owner_password}
-         | combine({'create_pat': true, 'pat_expire_in': 7}
-                   if netbird_owner_create_pat | bool else {}) }}
+    body:
+      email: "{{ netbird_owner_email }}"
+      name: "{{ netbird_owner_name | default(netbird_owner_email.split('@') | first) }}"
+      password: "{{ netbird_owner_password }}"
+      create_pat: true
+      pat_expire_in: 7
   register: netbird_setup_result
   no_log: true
   changed_when: true
@@ -240,38 +262,124 @@
     - netbird_instance.json is defined
     - netbird_instance.json.setup_required | default(false) | bool
 
-- name: "[NetBird] Ensure the control-node secrets directory exists"
+- name: "[NetBird] Record the one-time owner access token"
   tags: [netbird, netbird_owner]
-  ansible.builtin.file:
-    path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/projects/netbird-iac"
-    state: directory
-    mode: "0700"
-  delegate_to: localhost
-  become: false
-  when:
-    - netbird_setup_result is defined
-    - netbird_setup_result.json.personal_access_token is defined
-
-- name: "[NetBird] Persist the one-time setup PAT outside the repo (0600)"
-  tags: [netbird, netbird_owner]
-  ansible.builtin.copy:
-    content: "{{ netbird_setup_result.json.personal_access_token }}"
-    dest: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/projects/netbird-iac/{{ inventory_hostname }}.setup_pat"
-    mode: "0600"
-  delegate_to: localhost
-  become: false
+  ansible.builtin.set_fact:
+    netbird_owner_access_token: "{{ netbird_setup_result.json.personal_access_token | default('') }}"
   no_log: true
   when:
     - netbird_setup_result is defined
+    - netbird_setup_result.json is defined
     - netbird_setup_result.json.personal_access_token is defined
 
-- name: "[NetBird] Report where the setup PAT was written"
+- name: "[NetBird] Bootstrap the tenant service-user access token"
   tags: [netbird, netbird_owner]
-  ansible.builtin.debug:
-    msg: >-
-      One-time setup PAT written to
-      ~/.config/projects/netbird-iac/{{ inventory_hostname }}.setup_pat.
-      Store it in a secret manager; it is shown only once.
-  when:
-    - netbird_setup_result is defined
-    - netbird_setup_result.json.personal_access_token is defined
+  when: netbird_owner_access_token | default('') | length > 0
+  block:
+    - name: "[NetBird] Look up existing service users"
+      ansible.builtin.uri:
+        url: "https://{{ netbird_domain }}/api/users?service_user=true"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Token {{ netbird_owner_access_token }}"
+        validate_certs: true
+        return_content: true
+        status_code: [200]
+      register: netbird_service_users
+      no_log: true
+
+    - name: "[NetBird] Resolve an existing 'admin' service user id"
+      ansible.builtin.set_fact:
+        netbird_admin_service_user_id: >-
+          {{ (netbird_service_users.json | default([]))
+             | selectattr('name', 'equalto', 'admin')
+             | map(attribute='id') | list | first | default('') }}
+      no_log: true
+
+    - name: "[NetBird] Create the 'admin' service user"
+      ansible.builtin.uri:
+        url: "https://{{ netbird_domain }}/api/users"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          Authorization: "Token {{ netbird_owner_access_token }}"
+        body_format: json
+        body:
+          name: "admin"
+          role: "admin"
+          auto_groups: []
+          is_service_user: true
+        validate_certs: true
+        return_content: true
+        status_code: [200]
+      register: netbird_admin_service_user_created
+      no_log: true
+      changed_when: true
+      when: netbird_admin_service_user_id | length == 0
+
+    - name: "[NetBird] Record the created 'admin' service user id"
+      ansible.builtin.set_fact:
+        netbird_admin_service_user_id: "{{ netbird_admin_service_user_created.json.id }}"
+      no_log: true
+      when: netbird_admin_service_user_created is defined
+
+    - name: "[NetBird] Create the service-user access token"
+      ansible.builtin.uri:
+        url: "https://{{ netbird_domain }}/api/users/{{ netbird_admin_service_user_id }}/tokens"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          Authorization: "Token {{ netbird_owner_access_token }}"
+        body_format: json
+        body:
+          name: "netbird-iac"
+          expires_in: "{{ netbird_admin_service_user_access_token_expire_in | int }}"
+        validate_certs: true
+        return_content: true
+        status_code: [200]
+      register: netbird_admin_service_user_token
+      no_log: true
+      changed_when: true
+
+    - name: "[NetBird] Persist the service-user access token in the vault"
+      ansible.builtin.include_role:
+        name: helpers
+        tasks_from: vault_secrets_persist
+      vars:
+        vault_secrets_persist_vault_file: "vault_managed.yml"
+        vault_secrets_persist_name: "vault_admin_service_user_access_token"
+        vault_secrets_persist_value: "{{ netbird_admin_service_user_token.json.plain_token }}"
+
+    - name: "[NetBird] List the owner's access tokens"
+      ansible.builtin.uri:
+        url: "https://{{ netbird_domain }}/api/users/{{ netbird_setup_result.json.user_id }}/tokens"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Token {{ netbird_owner_access_token }}"
+        validate_certs: true
+        return_content: true
+        status_code: [200]
+      register: netbird_owner_tokens
+      no_log: true
+
+    - name: "[NetBird] Delete the one-time owner access token"
+      ansible.builtin.uri:
+        url: >-
+          https://{{ netbird_domain }}/api/users/{{ netbird_setup_result.json.user_id }}/tokens/{{ item.id }}
+        method: DELETE
+        headers:
+          Accept: application/json
+          Authorization: "Token {{ netbird_owner_access_token }}"
+        validate_certs: true
+        status_code: [200, 404]
+      loop: >-
+        {{ (netbird_owner_tokens.json | default([]))
+           | selectattr('name', 'equalto', 'setup-token') | list }}
+      loop_control:
+        label: "{{ item.name | default(item.id) }}"
+      no_log: true
+      changed_when: true
