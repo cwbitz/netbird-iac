@@ -8,14 +8,18 @@
 # applies the optional mirrors. This self-heals a deleted/rotated ansible
 # password or key (ansible login fails -> falls back to root -> recreates it).
 #
-# Service account auth — exactly one of:
+# SSH public keys (per identity, opt-in) — for every identity whose
+#   vault_{root,admin,ansible}_ssh_pubkey_file is set, the key at that
+#   control-node path is authorized for the matching account on the target.
+#   Unset/empty -> skipped (keys are never auto-generated). Paths only, never
+#   raw key strings. The matching private keys the control node connects with
+#   live in vault.yml too (vault_<id>_ssh_privkey_file).
+#
+# Service account auth (ansible identity) — exactly one of:
 #   vault_ansible_ssh_pubkey_file  control-node path to the .pub file (key auth)
 #   (neither)                      a password is set (password auth):
 #                                  netbird_bootstrap_password (optional;
 #                                  else generated into vault_ansible_password)
-#   The key paths live in vault.yml, next to the explicit private key path
-#   (vault_ansible_ssh_privkey_file) the control node connects with. Only paths
-#   are accepted — never raw key strings.
 #   If sshd has password auth disabled, login fails — sshd config is out of scope.
 #
 # Region mirrors (each a no-op unless set):
@@ -199,20 +203,6 @@
         netbird_bootstrap_service_user: "{{ netbird_bootstrap_user | default('ansible') }}"
         netbird_bootstrap_use_key: "{{ vault_ansible_ssh_pubkey_file | default('') | length > 0 }}"
 
-    - name: "[Bootstrap] Read the supplied public key file"
-      ansible.builtin.slurp:
-        src: "{{ vault_ansible_ssh_pubkey_file }}"
-      register: netbird_bootstrap_pubkey_file_raw
-      delegate_to: localhost
-      become: false
-      when: vault_ansible_ssh_pubkey_file | default('') | length > 0
-
-    - name: "[Bootstrap] Resolve the public key to authorize"
-      ansible.builtin.set_fact:
-        netbird_bootstrap_pubkey_value: >-
-          {{ netbird_bootstrap_pubkey_file_raw.content | default('') | b64decode | trim }}
-      when: netbird_bootstrap_use_key | bool
-
     - name: "[Bootstrap] Provision a service-account password (no key supplied)"
       ansible.builtin.include_role:
         name: helpers
@@ -253,28 +243,78 @@
         - netbird_probe_identity | lower != 'ansible'
         - not (netbird_bootstrap_use_key | bool)
 
-    - name: "[Bootstrap] Ensure the account .ssh directory exists"
-      ansible.builtin.file:
-        path: "{{ ('/root' if netbird_bootstrap_service_user == 'root' else '/home/' ~ netbird_bootstrap_service_user) }}/.ssh"
-        state: directory
-        owner: "{{ netbird_bootstrap_service_user }}"
-        group: "{{ netbird_bootstrap_service_user }}"
-        mode: "0700"
-      when:
-        - netbird_probe_identity | lower != 'ansible'
-        - netbird_bootstrap_use_key | bool
+    # --------------------------------------------------------------------------
+    # SSH public keys (per identity, opt-in): authorize every explicitly supplied
+    # vault_<id>_ssh_pubkey_file for its account. Empty/unset -> ignored (never
+    # generated). Independent of the service-account key/password mode above.
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the explicitly supplied public keys"
+      ansible.builtin.set_fact:
+        netbird_bootstrap_pubkey_specs: >-
+          {%- set ns = namespace(specs=[]) -%}
+          {%- for id, ident in netbird_ssh_identities.items() -%}
+          {%-   if (ident.pubkey | default('') | string | trim) | length > 0 -%}
+          {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
+          {%-   endif -%}
+          {%- endfor -%}
+          {{ ns.specs }}
 
-    - name: "[Bootstrap] Install the provided public key"
+    - name: "[Bootstrap] Read the supplied public key files"
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      register: netbird_bootstrap_pubkey_files
+      delegate_to: localhost
+      become: false
+      loop: "{{ netbird_bootstrap_pubkey_specs }}"
+      loop_control:
+        label: "{{ item.id }}"
+
+    - name: "[Bootstrap] Check that each public-key account exists"
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ item.user }}"
+      register: netbird_bootstrap_pubkey_users
+      failed_when: false
+      loop: "{{ netbird_bootstrap_pubkey_specs }}"
+      loop_control:
+        label: "{{ item.id }}"
+
+    - name: "[Bootstrap] Fail if a public key targets a missing account"
+      ansible.builtin.assert:
+        that:
+          - netbird_bootstrap_pubkey_users.results | default([])
+            | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
+        fail_msg: >-
+          vault_<id>_ssh_pubkey_file is set for account(s) that do not exist on
+          {{ inventory_hostname }}:
+          {{ netbird_bootstrap_pubkey_users.results | default([])
+             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')
+             | map(attribute='item.user') | join(', ') }}.
+          Create the account(s) or clear the pubkey path(s).
+      when: netbird_bootstrap_pubkey_specs | length > 0
+
+    - name: "[Bootstrap] Ensure each account's .ssh directory exists"
+      ansible.builtin.file:
+        path: "{{ ('/root' if item.item.user == 'root' else '/home/' ~ item.item.user) }}/.ssh"
+        state: directory
+        owner: "{{ item.item.user }}"
+        group: "{{ item.item.user }}"
+        mode: "0700"
+      loop: "{{ netbird_bootstrap_pubkey_files.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+
+    - name: "[Bootstrap] Authorize each supplied public key for its account"
       ansible.builtin.lineinfile:
-        path: "{{ ('/root' if netbird_bootstrap_service_user == 'root' else '/home/' ~ netbird_bootstrap_service_user) }}/.ssh/authorized_keys"
-        line: "{{ netbird_bootstrap_pubkey_value }}"
+        path: "{{ ('/root' if item.item.user == 'root' else '/home/' ~ item.item.user) }}/.ssh/authorized_keys"
+        line: "{{ item.content | b64decode | trim }}"
         create: true
-        owner: "{{ netbird_bootstrap_service_user }}"
-        group: "{{ netbird_bootstrap_service_user }}"
+        owner: "{{ item.item.user }}"
+        group: "{{ item.item.user }}"
         mode: "0600"
-      when:
-        - netbird_probe_identity | lower != 'ansible'
-        - netbird_bootstrap_use_key | bool
+      loop: "{{ netbird_bootstrap_pubkey_files.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.id }}"
 
     - name: "[Bootstrap] Grant passwordless sudo"
       ansible.builtin.copy:

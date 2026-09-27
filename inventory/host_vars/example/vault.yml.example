@@ -28,6 +28,12 @@ vault_host:
 # works; normal runs always use `ansible`. Each identity may set a password
 # AND/OR a private key file (SSH prefers the key, then falls back to password).
 # No become/sudo-password vars: the ansible account gets NOPASSWD sudo.
+#
+# `vault_*_ssh_privkey_file` is the control-node private key used to log in as
+# that identity. `vault_*_ssh_pubkey_file` is an optional control-node path to
+# the matching public key: when set, `make host-bootstrap` authorizes it for
+# that account on the target. Empty/unset is ignored (nothing is generated).
+# Only paths are accepted, never raw key strings.
 vault_root_user: "root"
 vault_root_password: ""
 vault_root_ssh_privkey_file: "~/.ssh/id_ed25519"
@@ -36,12 +42,9 @@ vault_admin_user: "admin"
 vault_admin_password: ""
 vault_admin_ssh_privkey_file: ""
 vault_admin_ssh_pubkey_file: ""
-# The ansible identity is the service account host-bootstrap authorizes:
-# vault_ansible_ssh_pubkey_file (control-node path to the public key) is
-# installed on it, and vault_ansible_ssh_privkey_file is the matching private
-# key path the control node connects with — both specified explicitly here, side
-# by side, never derived from one another. Only paths are accepted, never raw
-# key strings.
+# The ansible identity is the service account host-bootstrap creates/repairs;
+# its public key (when set) also switches the account to key auth instead of a
+# generated password.
 vault_ansible_user: "ansible"
 vault_ansible_password: ""
 vault_ansible_ssh_privkey_file: "~/.ssh/netbird_ansible_ed25519"

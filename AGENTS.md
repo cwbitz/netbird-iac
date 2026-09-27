@@ -32,7 +32,9 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   `vault_admin_*`, `vault_ansible_*`), and the optional first-owner credentials
   (`vault_owner_*`) + tenant `vault_pat`. Each identity may set a password and/or
   a private key file; SSH prefers the key and falls back to the password (errors
-  are SSH's, surfaced by Ansible). Schema reference:
+  are SSH's, surfaced by Ansible). An optional public key file
+  (`vault_*_ssh_pubkey_file`) is authorized for that account by
+  `make host-bootstrap` when set. Schema reference:
   `inventory/host_vars/example/vault.yml.example`.
 - `inventory/host_vars/<hostname>/vault_generated.yml` — **gitignored**, the
   role-generated secrets file (matched by `**/vault_*.yml`). Produced on first
@@ -122,9 +124,10 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   asserts `ansible_user != root` (override deliberately with
   `netbird_allow_root_login=true`). `make host-bootstrap` probes
   [ansible, admin, root] and uses the first that works; when it is not `ansible`
-  it creates `ansible` and authorizes the key at `vault_ansible_ssh_pubkey_file`
-  (or a password: `netbird_bootstrap_password`, else generated into
-  `vault_ansible_password`).
+  it creates `ansible`. Every explicitly set `vault_{root,admin,ansible}_ssh_pubkey_file`
+  is authorized for the matching account (unset -> ignored, never generated); for
+  `ansible` a missing key falls back to a password (`netbird_bootstrap_password`,
+  else generated into `vault_ansible_password`).
 - `vault_generated.yml` must never be plaintext: `vault_secrets_dispatch` calls
   `helpers/ensure_vault_encrypted` to re-encrypt a plaintext file in place (e.g.
   after a restore), and `backup.yml` does the same before copying.
@@ -146,8 +149,9 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   (`netbird_apt_mirror`, security mirror derived) + Docker registry mirrors
   (`docker_registry_mirrors`), plus it probes the SSH identities and **creates the
   least-privilege `ansible` service account when not already connected as it**
-  (SSH key from `vault_ansible_ssh_pubkey_file`, else a password) + NOPASSWD
-  sudo. Never runs as part of `site.yml`. Debian-family only for the APT part.
+  (authorizes each identity's `vault_*_ssh_pubkey_file` when set; for `ansible`,
+  else a password) + NOPASSWD sudo. Never runs as part of `site.yml`.
+  Debian-family only for the APT part.
 - `playbooks/backup.yml` / `playbooks/restore.yml` — stop-container backup of the
   `netbird_data` volume + `vault_generated.yml`, and the paired restore.
 - `playbooks/tenant.yml` — tenant config-as-code. Runs on `localhost`

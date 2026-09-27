@@ -67,12 +67,14 @@ make host-bootstrap
 ```
 
 `make host-bootstrap` probes `ansible → admin → root` and uses the first that
-works; when it is not `ansible` it creates the account, authorizing the public
-key path `vault_ansible_ssh_pubkey_file` if set, otherwise a password (generated
-into the encrypted vault). The matching private key path is
-`vault_ansible_ssh_privkey_file` (set explicitly next to the public key path;
-only paths are accepted, never raw key strings). It is also where region mirrors
-are configured (see below).
+works; when it is not `ansible` it creates the account. For each identity whose
+`vault_<id>_ssh_pubkey_file` is set, the public key at that path is authorized
+for the matching account (`ansible`, `admin` or `root`); an unset path is ignored
+(keys are never generated). For `ansible`, when no public key is given a password
+is set instead (generated into the encrypted vault). The matching private key
+path is `vault_<id>_ssh_privkey_file` (set explicitly next to the public key
+path; only paths are accepted, never raw key strings). It is also where region
+mirrors are configured (see below).
 
 When `netbird_owner_email` + `netbird_owner_password` are set in the vault, the
 play creates the first owner automatically. Otherwise open

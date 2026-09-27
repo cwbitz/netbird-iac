@@ -46,10 +46,11 @@ make host-bootstrap      # 创建 ansible 账号 + sudo
 ```
 
 `host-bootstrap` 会按 `ansible → admin → root` 顺序探测，用第一个能登录的身份；若非
-ansible，则创建该账号：设置了公钥路径 `vault_ansible_ssh_pubkey_file` 就写入该公钥，
-否则设密码（自动生成并写入加密 vault）。对应的私钥路径由 `vault_ansible_ssh_privkey_file`
-显式指定（与公钥路径同处 vault.yml，仅接受路径，不接受内联公钥字符串）。
-镜像源也在这里配置（见下）。
+ansible，则创建该账号。对每个设置了 `vault_<id>_ssh_pubkey_file` 的身份，会把该路径的
+公钥写入被控机对应账号（`ansible` / `admin` / `root`）；留空则忽略（不会自动生成密钥）。
+ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）。对应的私钥路径由
+`vault_<id>_ssh_privkey_file` 显式指定（与公钥路径同处 vault.yml，仅接受路径，不接受
+内联公钥字符串）。镜像源也在这里配置（见下）。
 
 vault 里填了 `netbird_owner_email` + `netbird_owner_password` 时会自动创建首个
 owner；否则浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何账号时
