@@ -71,7 +71,7 @@
 # ------------------------------------------------------------------------------
 # Per-host secrets (idempotent) via the shared helper. Generates the crypto
 # material the combined server needs and persists it in the encrypted per-host
-# vault file (inventory/host_vars/<hostname>/vault_generated.yml):
+# vault file (inventory/host_vars/<hostname>/vault_managed.yml):
 #   vault_relay_auth_secret
 #   vault_datastore_encryption_key
 #   vault_session_cookie_encryption_key
@@ -84,7 +84,7 @@
     tasks_from: vault_secrets_dispatch
   vars:
     vault_secrets_component: "netbird_server"
-    vault_secrets_vault_file: "vault_generated.yml"
+    vault_secrets_vault_file: "vault_managed.yml"
     vault_secrets_list:
       - var: "vault_relay_auth_secret"
         type: "base64"
@@ -182,7 +182,7 @@
     tasks_from: vault_secrets_dispatch
   vars:
     vault_secrets_component: "netbird_owner"
-    vault_secrets_vault_file: "vault_generated.yml"
+    vault_secrets_vault_file: "vault_managed.yml"
     vault_secrets_list:
       - var: "vault_owner_password"
         type: "base64"

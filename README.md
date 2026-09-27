@@ -158,7 +158,7 @@ make netbird-restore FROM=backup/<host>/<stamp>  # paired restore
 ```
 
 The backup stops the container for a consistent SQLite copy, archives the
-`netbird_data` volume, and saves `vault_generated.yml` (the encryption key)
+`netbird_data` volume, and saves `vault_managed.yml` (the encryption key)
 alongside it. **Data and key must come from the same backup** or encrypted fields
 cannot be decrypted. `backup/` is gitignored; keep a copy off-host.
 
@@ -190,8 +190,8 @@ roles/helpers/       # shared vault-secret provisioning
 
 Never commit vaults. User secrets live in the encrypted
 `inventory/host_vars/<host>/vault.yml`; the role generates the crypto material
-into the encrypted `vault_generated.yml` on first deploy (values are preserved
-on later runs). **Back up `vault_generated.yml`** — losing
+into the encrypted `vault_managed.yml` on first deploy (values are preserved
+on later runs). **Back up `vault_managed.yml`** — losing
 `vault_datastore_encryption_key` makes encrypted user data
 unrecoverable.
 

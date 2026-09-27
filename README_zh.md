@@ -124,7 +124,7 @@ make netbird-restore FROM=backup/<host>/<stamp>  # 成对恢复
 ```
 
 备份会停容器做一致的 SQLite 快照、打包 `netbird_data` 卷，并把
-`vault_generated.yml`（加密密钥）一并存放。**数据与密钥必须来自同一份备份**，否则
+`vault_managed.yml`（加密密钥）一并存放。**数据与密钥必须来自同一份备份**，否则
 加密字段解不开。`backup/` 已 gitignore；请另存异地副本。
 
 ## 区域受限主机的镜像源（可选）
@@ -154,7 +154,7 @@ roles/helpers/       # 共享的 vault 密钥生成
 
 切勿提交 vault。用户密钥放在加密的
 `inventory/host_vars/<host>/vault.yml`；role 首次部署时把加密材料生成进加密的
-`vault_generated.yml`（后续运行保留原值）。**务必备份 `vault_generated.yml`**：丢失
+`vault_managed.yml`（后续运行保留原值）。**务必备份 `vault_managed.yml`**：丢失
 `vault_datastore_encryption_key` 会导致加密的用户数据不可恢复。
 
 ## 许可证

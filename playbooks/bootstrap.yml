@@ -209,7 +209,7 @@
         tasks_from: vault_secrets_dispatch
       vars:
         vault_secrets_component: "netbird_bootstrap"
-        vault_secrets_vault_file: "vault_generated.yml"
+        vault_secrets_vault_file: "vault_managed.yml"
         vault_secrets_list:
           - var: "vault_ansible_password"
             type: "base64"

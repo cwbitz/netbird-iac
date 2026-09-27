@@ -7,8 +7,8 @@
 # under host_vars/; every real <hostname>/ directory is gitignored.
 #
 # THE single per-host variable file the user maintains. Real secrets stay in the
-# encrypted vault.yml next to this file; role-generated secrets are written to
-# the encrypted vault_generated.yml next to it.
+# encrypted vault.yml next to this file; automation-managed secrets are written to
+# the encrypted vault_managed.yml next to it.
 
 # --- Topology ----------------------------------------------------------------
 # ansible_host comes from hosts.yml; the port comes from the per-host topology

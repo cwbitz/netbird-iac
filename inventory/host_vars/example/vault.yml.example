@@ -11,7 +11,7 @@
 #
 # The real vault.yml is gitignored and NEVER committed (even encrypted).
 # Role-generated secrets are written to an encrypted
-# inventory/host_vars/<hostname>/vault_generated.yml on first deploy.
+# inventory/host_vars/<hostname>/vault_managed.yml on first deploy.
 #
 # The vault password is read from
 # ~/.config/projects/netbird-iac/ansible_vault_password

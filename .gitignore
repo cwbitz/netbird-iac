@@ -22,7 +22,7 @@ backup/
 # Ignore ALL Ansible Vault credential/secret files recursively.
 # This covers:
 #   - inventory/host_vars/<hostname>/vault.yml           (user-set real secrets)
-#   - inventory/host_vars/<hostname>/vault_generated.yml (role-generated secrets)
+#   - inventory/host_vars/<hostname>/vault_managed.yml (role-generated secrets)
 # The committed schema reference is
 # inventory/host_vars/example/vault.yml.example.
 # NEVER commit a vault*.yml file (even encrypted) to eliminate brute-force risk.

@@ -8,7 +8,7 @@
 #   - netbird_data.tgz      the Docker volume (store.db / idp.db / events.db +
 #                           geo DBs), archived with the container STOPPED so the
 #                           SQLite files are consistent
-#   - vault_generated.yml   the generated encryption keys, copied next to the
+#   - vault_managed.yml   the generated encryption keys, copied next to the
 #                           data so a restore can re-render config.yaml with the
 #                           SAME datastore encryptionKey (data + key must pair)
 #
@@ -73,5 +73,5 @@
         msg: >-
           Backup written to {{ netbird_backup_path }}/netbird_data.tgz. The
           encryption key is NOT stored here — it stays in the control node's
-          inventory/host_vars/{{ inventory_hostname }}/vault_generated.yml, which
+          inventory/host_vars/{{ inventory_hostname }}/vault_managed.yml, which
           must be kept to restore. Keep the archive off-host and safe.
