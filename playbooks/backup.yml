@@ -20,20 +20,20 @@
   hosts: netbird
   gather_facts: false
   vars:
-    netbird_backup_dir: "{{ playbook_dir }}/../backup"
-    netbird_backup_volume: "{{ netbird_data_volume_name | default('netbird_data') }}"
+    backup_dir: "{{ playbook_dir }}/../backup"
+    backup_volume: "{{ netbird_data_volume | default('netbird_data') }}"
   tasks:
     - name: "[Backup] Freeze the timestamp (single value for all tasks)"
       ansible.builtin.set_fact:
-        netbird_backup_stamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
+        backup_stamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
 
     - name: "[Backup] Resolve the backup path"
       ansible.builtin.set_fact:
-        netbird_backup_path: "{{ netbird_backup_dir }}/{{ inventory_hostname }}/{{ netbird_backup_stamp }}"
+        backup_path: "{{ backup_dir }}/{{ inventory_hostname }}/{{ backup_stamp }}"
 
     - name: "[Backup] Ensure the local backup directory exists"
       ansible.builtin.file:
-        path: "{{ netbird_backup_path }}"
+        path: "{{ backup_path }}"
         state: directory
         mode: "0700"
       delegate_to: localhost
@@ -47,7 +47,7 @@
     - name: "[Backup] Archive the data volume"
       ansible.builtin.command: >-
         docker run --rm
-        -v {{ netbird_backup_volume }}:/data:ro
+        -v {{ backup_volume }}:/data:ro
         -v /tmp:/backup
         alpine sh -c "cd /data && tar czf /backup/netbird_data.tgz ."
       changed_when: true
@@ -60,7 +60,7 @@
     - name: "[Backup] Fetch the archive to the control node"
       ansible.builtin.fetch:
         src: /tmp/netbird_data.tgz
-        dest: "{{ netbird_backup_path }}/"
+        dest: "{{ backup_path }}/"
         flat: true
 
     - name: "[Backup] Remove the remote archive"
@@ -71,7 +71,7 @@
     - name: "[Backup] Report"
       ansible.builtin.debug:
         msg: >-
-          Backup written to {{ netbird_backup_path }}/netbird_data.tgz. The
+          Backup written to {{ backup_path }}/netbird_data.tgz. The
           encryption key is NOT stored here — it stays in the control node's
           inventory/host_vars/{{ inventory_hostname }}/vault_managed.yml, which
           must be kept to restore. Keep the archive off-host and safe.

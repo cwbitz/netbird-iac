@@ -76,8 +76,8 @@ path is `vault_<id>_ssh_privkey_file` (set explicitly next to the public key
 path; only paths are accepted, never raw key strings). It is also where region
 mirrors are configured (see below).
 
-When `netbird_owner_email` is set in the vault, the play creates the first owner
-automatically through `/api/setup`; if `netbird_owner_password` is empty, one is
+When `owner_email` is set in the vault, the play creates the first owner
+automatically through `/api/setup`; if `owner_password` is empty, one is
 generated into the encrypted `vault_managed.yml`. On that first setup the play
 also creates an `admin` service user, mints a Personal Access Token for it,
 stores it as `vault_admin_service_user_access_token` (used by the tenant phase),

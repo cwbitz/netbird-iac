@@ -106,11 +106,11 @@ netbird-plan: ans-vault-init
 
 .PHONY: netbird-apply
 netbird-apply: ans-vault-init
-	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e netbird_tenant_commit=true
+	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true
 
 .PHONY: netbird-apply-strict
 netbird-apply-strict: ans-vault-init
-	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e netbird_tenant_commit=true -e netbird_tenant_strict=true
+	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true -e tenant_strict=true
 
 .PHONY: netbird-backup
 netbird-backup: ans-vault-init
@@ -119,7 +119,7 @@ netbird-backup: ans-vault-init
 .PHONY: netbird-restore
 netbird-restore: ans-vault-init
 	@if [ -z "$(FROM)" ]; then echo "Usage: make netbird-restore FROM=backup/<host>/<timestamp>" >&2; exit 1; fi
-	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e netbird_restore_from=$(abspath $(FROM))
+	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e restore_from=$(abspath $(FROM))
 
 .PHONY: ans-vars
 ans-vars: ans-vault-init

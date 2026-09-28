@@ -5,17 +5,17 @@
 # ==============================================================================
 server:
   listenAddress: ":80"
-  exposedAddress: "{{ netbird_http_protocol }}://{{ netbird_domain }}:{{ netbird_exposed_port }}"
+  exposedAddress: "{{ http_protocol }}://{{ domain_name }}:{{ exposed_port }}"
   stunPorts:
-    - {{ netbird_stun_port }}
+    - {{ stun_port }}
   metricsPort: 9090
   healthcheckAddress: ":9000"
-  logLevel: "{{ netbird_log_level }}"
+  logLevel: "{{ log_level }}"
   logFile: "console"
 
   # Skip the GeoLite2 DB download at startup (needs outbound access to
   # pkgs.netbird.io; disabling turns off geo-based posture checks).
-  disableGeoliteUpdate: {{ 'true' if netbird_disable_geolite_update | bool else 'false' }}
+  disableGeoliteUpdate: {{ 'true' if disable_geolite_update | bool else 'false' }}
 
   # Relay auth secret. Padding is stripped to match the upstream quickstart
   # script's expectation for this value.
@@ -25,21 +25,21 @@ server:
   auth:
     # Embedded IdP (Dex): local users by default; external OIDC providers can be
     # added later from the Dashboard without touching this file.
-    issuer: "{{ netbird_http_protocol }}://{{ netbird_domain }}/oauth2"
+    issuer: "{{ http_protocol }}://{{ domain_name }}/oauth2"
     signKeyRefreshEnabled: true
     sessionCookieEncryptionKey: "{{ vault_session_cookie_encryption_key }}"
     dashboardRedirectURIs:
-      - "{{ netbird_http_protocol }}://{{ netbird_domain }}/nb-auth"
-      - "{{ netbird_http_protocol }}://{{ netbird_domain }}/nb-silent-auth"
+      - "{{ http_protocol }}://{{ domain_name }}/nb-auth"
+      - "{{ http_protocol }}://{{ domain_name }}/nb-silent-auth"
     cliRedirectURIs:
       - "http://localhost:53000/"
 
   reverseProxy:
     trustedHTTPProxies:
-      - "{{ netbird_traefik_ip }}/32"
-{% if netbird_trusted_peers | length > 0 %}
+      - "{{ traefik_ip }}/32"
+{% if trusted_peers | length > 0 %}
     trustedPeers:
-{% for peer in netbird_trusted_peers %}
+{% for peer in trusted_peers %}
       - "{{ peer }}"
 {% endfor %}
 {% endif %}

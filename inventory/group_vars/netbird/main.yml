@@ -9,4 +9,4 @@
 
 # Directory on the target host that holds the rendered stack (docker-compose.yml,
 # config.yaml, dashboard.env) and the Docker named volume backing the data.
-netbird_stack_dir: "/opt/netbird"
+stack_dir: "/opt/netbird"

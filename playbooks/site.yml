@@ -28,7 +28,7 @@
     - name: "[Preflight] Require the service account (not root) for the deploy"
       ansible.builtin.assert:
         that:
-          - (ansible_user | default('root')) != 'root' or (host_allow_root_login | default(false) | bool)
+          - (host_ssh_user | default('root')) != 'root' or (host_allow_root_login | default(false) | bool)
         fail_msg: >-
           The deploy must run as the non-root service account, not root. Run
           `make host-bootstrap` once as root to create it, then set

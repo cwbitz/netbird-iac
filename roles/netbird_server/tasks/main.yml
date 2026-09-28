@@ -16,13 +16,13 @@
   tags: [netbird, netbird_preflight]
   ansible.builtin.assert:
     that:
-      - netbird_domain is defined and (netbird_domain | string | trim) | length > 0
-      - netbird_domain != 'netbird.example.com'
-      - netbird_domain is not match('^https?://')
-      - netbird_letsencrypt_email is defined and (netbird_letsencrypt_email | string | trim) | length > 0
+      - domain_name is defined and (domain_name | string | trim) | length > 0
+      - domain_name != 'netbird.example.com'
+      - domain_name is not match('^https?://')
+      - letsencrypt_email is defined and (letsencrypt_email | string | trim) | length > 0
     fail_msg: >-
-      Set netbird_domain (an FQDN whose A record points at this host, without a
-      scheme) and netbird_letsencrypt_email in
+      Set domain_name (an FQDN whose A record points at this host, without a
+      scheme) and letsencrypt_email in
       inventory/host_vars/<hostname>/main.yml / vault.yml. See
       inventory/host_vars/example/.
   run_once: true
@@ -32,7 +32,7 @@
 - name: "[NetBird] Check Docker Engine and the Compose v2 plugin on the host"
   tags: [netbird, netbird_preflight]
   ansible.builtin.command: docker compose version
-  register: netbird_compose_check
+  register: compose_check
   changed_when: false
   failed_when: false
   check_mode: false
@@ -41,7 +41,7 @@
   tags: [netbird, netbird_preflight]
   ansible.builtin.assert:
     that:
-      - netbird_compose_check.rc == 0
+      - compose_check.rc == 0
     fail_msg: >-
       Docker Engine with the Compose v2 plugin is required on
       {{ inventory_hostname }} but was not found. Install Docker from
@@ -51,8 +51,8 @@
 
 - name: "[NetBird] Resolve the public domain from the control node (advisory)"
   tags: [netbird, netbird_preflight]
-  ansible.builtin.command: "getent hosts {{ netbird_domain }}"
-  register: netbird_dns_check
+  ansible.builtin.command: "getent hosts {{ domain_name }}"
+  register: dns_check
   changed_when: false
   failed_when: false
   run_once: true
@@ -63,10 +63,10 @@
   tags: [netbird, netbird_preflight]
   ansible.builtin.debug:
     msg: >-
-      WARNING: '{{ netbird_domain }}' does not resolve from the control node.
+      WARNING: '{{ domain_name }}' does not resolve from the control node.
       Point its A record at this host and open TCP 80/443 and UDP 3478 before
       TLS issuance and client connections can succeed.
-  when: netbird_dns_check.rc | default(1) != 0
+  when: dns_check.rc | default(1) != 0
 
 # ------------------------------------------------------------------------------
 # Per-host secrets (idempotent) via the shared helper. Generates the crypto
@@ -102,7 +102,7 @@
 - name: "[NetBird] Ensure the stack directory exists"
   tags: [netbird, netbird_config]
   ansible.builtin.file:
-    path: "{{ netbird_stack_dir }}"
+    path: "{{ stack_dir }}"
     state: directory
     owner: root
     group: root
@@ -112,7 +112,7 @@
   tags: [netbird, netbird_config]
   ansible.builtin.template:
     src: config.yaml.j2
-    dest: "{{ netbird_stack_dir }}/config.yaml"
+    dest: "{{ stack_dir }}/config.yaml"
     owner: root
     group: root
     mode: "0600"
@@ -123,7 +123,7 @@
   tags: [netbird, netbird_config]
   ansible.builtin.template:
     src: dashboard.env.j2
-    dest: "{{ netbird_stack_dir }}/dashboard.env"
+    dest: "{{ stack_dir }}/dashboard.env"
     owner: root
     group: root
     mode: "0600"
@@ -133,7 +133,7 @@
   tags: [netbird, netbird_config]
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ netbird_stack_dir }}/docker-compose.yml"
+    dest: "{{ stack_dir }}/docker-compose.yml"
     owner: root
     group: root
     mode: "0644"
@@ -144,7 +144,7 @@
 - name: "[NetBird] Deploy the NetBird server stack"
   tags: [netbird, netbird_deploy]
   community.docker.docker_compose_v2:
-    project_src: "{{ netbird_stack_dir }}"
+    project_src: "{{ stack_dir }}"
     state: present
     remove_orphans: true
 
@@ -155,11 +155,11 @@
 - name: "[NetBird] Wait for the server to answer over TLS"
   tags: [netbird, netbird_deploy]
   ansible.builtin.uri:
-    url: "https://{{ netbird_domain }}/oauth2/.well-known/openid-configuration"
+    url: "https://{{ domain_name }}/oauth2/.well-known/openid-configuration"
     validate_certs: true
     status_code: 200
-  register: netbird_ready
-  until: netbird_ready is succeeded
+  register: ready
+  until: ready is succeeded
   retries: 60
   delay: 5
   changed_when: false
@@ -168,7 +168,7 @@
 # ------------------------------------------------------------------------------
 # First-owner + tenant-credential bootstrap (fixed flow). /api/setup is
 # unauthenticated and only works while no account exists; on later runs it is
-# skipped. When it runs (netbird_owner_email set and setup still required):
+# skipped. When it runs (owner_email set and setup still required):
 #   1. create the first owner (password from vault, else generated);
 #   2. request a short-lived owner access token (create_pat, 7 days);
 #   3. create the 'admin' service user and a Personal Access Token for it;
@@ -180,7 +180,7 @@
 # days) and cannot be renewed once invalid; on expiry recreate it from the
 # Dashboard (the tenant run fails with instructions) — see AGENTS.md.
 #
-# Owner password: when netbird_owner_email is set and the password is empty, a
+# Owner password: when owner_email is set and the password is empty, a
 # password is generated and persisted in vault_managed.yml. Set
 # vault_owner_password in vault.yml to choose your own.
 # ------------------------------------------------------------------------------
@@ -196,115 +196,115 @@
       - var: "vault_owner_password"
         type: "base64"
         length: 24
-  when: netbird_owner_email | default('') | length > 0
+  when: owner_email | default('') | length > 0
 
 - name: "[NetBird] Notice: the first owner must be onboarded manually"
   tags: [netbird, netbird_owner]
   ansible.builtin.debug:
     msg: >-
-      netbird_owner_email is empty, so the first owner is NOT created
+      owner_email is empty, so the first owner is NOT created
       automatically and no tenant API token is provisioned. Open
-      https://{{ netbird_domain }}/setup in a browser (that page only works while
+      https://{{ domain_name }}/setup in a browser (that page only works while
       the instance has no accounts), then create an 'admin' service user and an
       Access Token under Team -> Service Users and set
       vault_admin_service_user_access_token in vault.yml.
   when:
-    - netbird_owner_email | default('') | length == 0
+    - owner_email | default('') | length == 0
 
 - name: "[NetBird] Warn that a supplied owner password has no effect without an owner email"
   tags: [netbird, netbird_owner]
   ansible.builtin.debug:
     msg: >-
-      netbird_owner_password is set but netbird_owner_email is empty, so the
+      owner_password is set but owner_email is empty, so the
       first owner is NOT created automatically and this password is not applied.
-      Set netbird_owner_email, or onboard manually at
-      https://{{ netbird_domain }}/setup.
+      Set owner_email, or onboard manually at
+      https://{{ domain_name }}/setup.
   when:
-    - netbird_owner_email | default('') | length == 0
-    - netbird_owner_password | default('') | length > 0
+    - owner_email | default('') | length == 0
+    - owner_password | default('') | length > 0
 
 - name: "[NetBird] Check whether instance setup is still required"
   tags: [netbird, netbird_owner]
   ansible.builtin.uri:
-    url: "https://{{ netbird_domain }}/api/instance"
+    url: "https://{{ domain_name }}/api/instance"
     validate_certs: true
     return_content: true
-  register: netbird_instance
+  register: instance
   failed_when: false
   changed_when: false
   when:
     - not ansible_check_mode
-    - netbird_owner_email | default('') | length > 0
+    - owner_email | default('') | length > 0
 
 - name: "[NetBird] Create the first owner user via the setup API"
   tags: [netbird, netbird_owner]
   ansible.builtin.uri:
-    url: "https://{{ netbird_domain }}/api/setup"
+    url: "https://{{ domain_name }}/api/setup"
     method: POST
     body_format: json
     validate_certs: true
     return_content: true
     status_code: [200]
     body:
-      email: "{{ netbird_owner_email }}"
-      name: "{{ netbird_owner_name | default(netbird_owner_email.split('@') | first) }}"
-      password: "{{ netbird_owner_password }}"
+      email: "{{ owner_email }}"
+      name: "{{ owner_name | default(owner_email.split('@') | first) }}"
+      password: "{{ owner_password }}"
       create_pat: true
       pat_expire_in: 7
-  register: netbird_setup_result
+  register: setup_result
   no_log: true
   changed_when: true
   when:
     - not ansible_check_mode
-    - netbird_owner_email | default('') | length > 0
-    - netbird_owner_password | default('') | length > 0
-    - netbird_instance is defined
-    - netbird_instance.json is defined
-    - netbird_instance.json.setup_required | default(false) | bool
+    - owner_email | default('') | length > 0
+    - owner_password | default('') | length > 0
+    - instance is defined
+    - instance.json is defined
+    - instance.json.setup_required | default(false) | bool
 
 - name: "[NetBird] Record the one-time owner access token"
   tags: [netbird, netbird_owner]
   ansible.builtin.set_fact:
-    netbird_owner_access_token: "{{ netbird_setup_result.json.personal_access_token | default('') }}"
+    owner_access_token: "{{ setup_result.json.personal_access_token | default('') }}"
   no_log: true
   when:
-    - netbird_setup_result is defined
-    - netbird_setup_result.json is defined
-    - netbird_setup_result.json.personal_access_token is defined
+    - setup_result is defined
+    - setup_result.json is defined
+    - setup_result.json.personal_access_token is defined
 
 - name: "[NetBird] Bootstrap the tenant service-user access token"
   tags: [netbird, netbird_owner]
-  when: netbird_owner_access_token | default('') | length > 0
+  when: owner_access_token | default('') | length > 0
   block:
     - name: "[NetBird] Look up existing service users"
       ansible.builtin.uri:
-        url: "https://{{ netbird_domain }}/api/users?service_user=true"
+        url: "https://{{ domain_name }}/api/users?service_user=true"
         method: GET
         headers:
           Accept: application/json
-          Authorization: "Token {{ netbird_owner_access_token }}"
+          Authorization: "Token {{ owner_access_token }}"
         validate_certs: true
         return_content: true
         status_code: [200]
-      register: netbird_service_users
+      register: service_users
       no_log: true
 
     - name: "[NetBird] Resolve an existing 'admin' service user id"
       ansible.builtin.set_fact:
-        netbird_admin_service_user_id: >-
-          {{ (netbird_service_users.json | default([]))
+        admin_service_user_id: >-
+          {{ (service_users.json | default([]))
              | selectattr('name', 'equalto', 'admin')
              | map(attribute='id') | list | first | default('') }}
       no_log: true
 
     - name: "[NetBird] Create the 'admin' service user"
       ansible.builtin.uri:
-        url: "https://{{ netbird_domain }}/api/users"
+        url: "https://{{ domain_name }}/api/users"
         method: POST
         headers:
           Accept: application/json
           Content-Type: application/json
-          Authorization: "Token {{ netbird_owner_access_token }}"
+          Authorization: "Token {{ owner_access_token }}"
         body_format: json
         body:
           name: "admin"
@@ -314,33 +314,33 @@
         validate_certs: true
         return_content: true
         status_code: [200]
-      register: netbird_admin_service_user_created
+      register: admin_service_user_created
       no_log: true
       changed_when: true
-      when: netbird_admin_service_user_id | length == 0
+      when: admin_service_user_id | length == 0
 
     - name: "[NetBird] Record the created 'admin' service user id"
       ansible.builtin.set_fact:
-        netbird_admin_service_user_id: "{{ netbird_admin_service_user_created.json.id }}"
+        admin_service_user_id: "{{ admin_service_user_created.json.id }}"
       no_log: true
-      when: netbird_admin_service_user_created is defined
+      when: admin_service_user_created is defined
 
     - name: "[NetBird] Create the service-user access token"
       ansible.builtin.uri:
-        url: "https://{{ netbird_domain }}/api/users/{{ netbird_admin_service_user_id }}/tokens"
+        url: "https://{{ domain_name }}/api/users/{{ admin_service_user_id }}/tokens"
         method: POST
         headers:
           Accept: application/json
           Content-Type: application/json
-          Authorization: "Token {{ netbird_owner_access_token }}"
+          Authorization: "Token {{ owner_access_token }}"
         body_format: json
         body:
           name: "netbird-iac"
-          expires_in: "{{ netbird_admin_service_user_access_token_expire_in | int }}"
+          expires_in: "{{ admin_service_user_access_token_expire_in | int }}"
         validate_certs: true
         return_content: true
         status_code: [200]
-      register: netbird_admin_service_user_token
+      register: admin_service_user_token
       no_log: true
       changed_when: true
 
@@ -351,33 +351,33 @@
       vars:
         vault_secrets_persist_vault_file: "vault_managed.yml"
         vault_secrets_persist_name: "vault_admin_service_user_access_token"
-        vault_secrets_persist_value: "{{ netbird_admin_service_user_token.json.plain_token }}"
+        vault_secrets_persist_value: "{{ admin_service_user_token.json.plain_token }}"
 
     - name: "[NetBird] List the owner's access tokens"
       ansible.builtin.uri:
-        url: "https://{{ netbird_domain }}/api/users/{{ netbird_setup_result.json.user_id }}/tokens"
+        url: "https://{{ domain_name }}/api/users/{{ setup_result.json.user_id }}/tokens"
         method: GET
         headers:
           Accept: application/json
-          Authorization: "Token {{ netbird_owner_access_token }}"
+          Authorization: "Token {{ owner_access_token }}"
         validate_certs: true
         return_content: true
         status_code: [200]
-      register: netbird_owner_tokens
+      register: owner_tokens
       no_log: true
 
     - name: "[NetBird] Delete the one-time owner access token"
       ansible.builtin.uri:
         url: >-
-          https://{{ netbird_domain }}/api/users/{{ netbird_setup_result.json.user_id }}/tokens/{{ item.id }}
+          https://{{ domain_name }}/api/users/{{ setup_result.json.user_id }}/tokens/{{ item.id }}
         method: DELETE
         headers:
           Accept: application/json
-          Authorization: "Token {{ netbird_owner_access_token }}"
+          Authorization: "Token {{ owner_access_token }}"
         validate_certs: true
         status_code: [200, 404]
       loop: >-
-        {{ (netbird_owner_tokens.json | default([]))
+        {{ (owner_tokens.json | default([]))
            | selectattr('name', 'equalto', 'setup-token') | list }}
       loop_control:
         label: "{{ item.name | default(item.id) }}"

@@ -121,7 +121,7 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   `https://<domain>/oauth2/.well-known/openid-configuration`, which also drives
   the first certificate issuance.
 - The NetBird dashboard image only publishes moving tags (`latest` / `sha-*` /
-  `pr-*`), so `netbird_dashboard_version` cannot be pinned; the server image is
+  `pr-*`), so `dashboard_version` cannot be pinned; the server image is
   pinned and tracked by Renovate.
 - **GeoLite2 at startup**: the server downloads MaxMind GeoLite2 DBs from
   `pkgs.netbird.io` on first start and **blocks startup until they finish**;
@@ -130,12 +130,12 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   container keeps downloading and the DBs persist in `netbird_data`, so a later
   re-run succeeds). For such hosts, pre-seed `GeoLite2-City_*.mmdb` +
   `geonames_*.db` into the volume (the geonames file must contain a real
-  `geonames` table) and set `netbird_disable_geolite_update: true`.
+  `geonames` table) and set `disable_geolite_update: true`.
 - A bind-mounted config change does **not** recreate the container, so the
   `config.yaml` / `dashboard.env` template tasks notify the
   `[NetBird] Restart the stack` handler.
 - The deploy **requires the non-root service account**: `playbooks/site.yml`
-  asserts `ansible_user != root` (override deliberately with
+  asserts `host_ssh_user != root` (override deliberately with
   `host_allow_root_login=true`). `make host-bootstrap` probes
   [ansible, admin, root] and uses the first that works; when it is not `ansible`
   it creates `ansible`. Every explicitly set `vault_{root,admin,ansible}_ssh_pubkey_file`
@@ -150,8 +150,8 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   (`reverseProxy.trustedHTTPProxies`).
 - The data volume uses an **explicit name** (`netbird_data`), so it is stable
   regardless of the compose project directory (docker compose would otherwise
-  prefix it with the project name, e.g. `netbird_netbird_data`).
-- Config files are rendered to `{{ netbird_stack_dir }}` (`/opt/netbird` by
+  prefix it with the project name, e.g. `netbird_data`).
+- Config files are rendered to `{{ stack_dir }}` (`/opt/netbird` by
   default, in `inventory/group_vars/netbird/main.yml`) and applied with
   `community.docker.docker_compose_v2`. Rendering is the source of truth; never
   edit the files on the target host.
@@ -173,7 +173,7 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   `vault_admin_service_user_access_token`.
   It includes the collection role `community.ansible_netbird.configure` with
   `config_dir: netbird_config/`, `commit`/`strict` driven by
-  `netbird_tenant_commit`/`netbird_tenant_strict` (both default false = preview).
+  `tenant_commit`/`tenant_strict` (both default false = preview).
   Users/service users (not in the collection's Config-as-Code skeleton) are
   applied afterward via `netbird_user`, gated on commit.
 - `netbird_config/` — the declarative tenant desired state (versioned YAML):
@@ -202,9 +202,9 @@ current (see `renovate.json`).
 
 | Component | Registry | Version var |
 |---|---|---|
-| netbird-server | dockerhub | `netbird_server_version` |
-| netbird-dashboard | dockerhub | `netbird_dashboard_version` (upstream has no pinned tags) |
-| traefik | dockerhub | `netbird_traefik_version` |
+| netbird-server | dockerhub | `server_version` |
+| netbird-dashboard | dockerhub | `dashboard_version` (upstream has no pinned tags) |
+| traefik | dockerhub | `traefik_version` |
 
 ## Scope and roadmap
 

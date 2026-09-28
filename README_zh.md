@@ -52,8 +52,8 @@ ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）
 `vault_<id>_ssh_privkey_file` 显式指定（与公钥路径同处 vault.yml，仅接受路径，不接受
 内联公钥字符串）。镜像源也在这里配置（见下）。
 
-vault 里填了 `netbird_owner_email` 时会通过 `/api/setup` 自动创建首个 owner；
-`netbird_owner_password` 留空则由角色生成并写入加密的 `vault_managed.yml`。
+vault 里填了 `owner_email` 时会通过 `/api/setup` 自动创建首个 owner；
+`owner_password` 留空则由角色生成并写入加密的 `vault_managed.yml`。
 该首次部署还会创建一个 `admin` service user、为它签发 Personal Access Token，
 存入 `vault_admin_service_user_access_token`（供 tenant 阶段使用），然后删除一次性的
 owner token。不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何

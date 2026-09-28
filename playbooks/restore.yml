@@ -14,49 +14,49 @@
   hosts: netbird
   gather_facts: false
   vars:
-    netbird_restore_from: ""
-    netbird_restore_volume: "{{ netbird_data_volume_name | default('netbird_data') }}"
+    restore_from: ""
+    restore_volume: "{{ netbird_data_volume | default('netbird_data') }}"
   tasks:
-    - name: "[Restore] Require netbird_restore_from"
+    - name: "[Restore] Require restore_from"
       ansible.builtin.assert:
         that:
-          - netbird_restore_from | length > 0
+          - restore_from | length > 0
         fail_msg: "Usage: make netbird-restore FROM=backup/<host>/<timestamp>"
 
     - name: "[Restore] Resolve the backup path to an absolute path"
       ansible.builtin.set_fact:
-        netbird_restore_from: "{{ netbird_restore_from | realpath }}"
+        restore_from: "{{ restore_from | realpath }}"
       delegate_to: localhost
       become: false
 
     - name: "[Restore] Stat the backup archive on the control node"
       ansible.builtin.stat:
-        path: "{{ netbird_restore_from }}/netbird_data.tgz"
-      register: netbird_restore_archive
+        path: "{{ restore_from }}/netbird_data.tgz"
+      register: restore_archive
       delegate_to: localhost
       become: false
 
     - name: "[Restore] Fail early if the archive is missing"
       ansible.builtin.assert:
         that:
-          - netbird_restore_archive.stat.exists | default(false)
-        fail_msg: "No netbird_data.tgz under {{ netbird_restore_from }}/."
+          - restore_archive.stat.exists | default(false)
+        fail_msg: "No netbird_data.tgz under {{ restore_from }}/."
 
     - name: "[Restore] Stop the stack"
       community.docker.docker_compose_v2:
-        project_src: "{{ netbird_stack_dir }}"
+        project_src: "{{ stack_dir }}"
         state: stopped
 
     - name: "[Restore] Copy the archive to the host"
       ansible.builtin.copy:
-        src: "{{ netbird_restore_from }}/netbird_data.tgz"
+        src: "{{ restore_from }}/netbird_data.tgz"
         dest: /tmp/netbird_data.tgz
         mode: "0600"
 
     - name: "[Restore] Replace the data volume contents"
       ansible.builtin.command: >-
         docker run --rm
-        -v {{ netbird_restore_volume }}:/data
+        -v {{ restore_volume }}:/data
         -v /tmp:/backup
         alpine sh -c "rm -rf /data/..?* /data/.[!.]* /data/* && tar xzf /backup/netbird_data.tgz -C /data"
       changed_when: true
@@ -72,4 +72,4 @@
 
     - name: "[Restore] Report"
       ansible.builtin.debug:
-        msg: "Restored from {{ netbird_restore_from }} and redeployed."
+        msg: "Restored from {{ restore_from }} and redeployed."

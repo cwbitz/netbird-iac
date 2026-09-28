@@ -32,13 +32,13 @@
   gather_facts: false
   vars:
     netbird_target: "{{ hostvars[groups['netbird'][0]] }}"
-    netbird_probe_host: "{{ netbird_target.ansible_host }}"
-    netbird_probe_port: "{{ netbird_target.ansible_port | default(22) }}"
+    probe_host: "{{ netbird_target.ansible_host }}"
+    probe_port: "{{ netbird_target.ansible_port | default(22) }}"
   tasks:
     - name: "[Probe] Try each identity over SSH"
       ansible.builtin.shell: |
         set -u
-        HOST="{{ netbird_probe_host }}"; PORT="{{ netbird_probe_port }}"
+        HOST="{{ probe_host }}"; PORT="{{ probe_port }}"
         try_identity() {
           id="$1"
           user=$(eval echo "\$PROBE_${id}_USER")
@@ -62,16 +62,16 @@
       args:
         executable: /bin/bash
       environment:
-        PROBE_ANSIBLE_USER: "{{ netbird_target.netbird_ssh_identities.ansible.user }}"
-        PROBE_ANSIBLE_PW: "{{ netbird_target.netbird_ssh_identities.ansible.password }}"
-        PROBE_ANSIBLE_KEY: "{{ netbird_target.netbird_ssh_identities.ansible.privkey }}"
-        PROBE_ADMIN_USER: "{{ netbird_target.netbird_ssh_identities.admin.user }}"
-        PROBE_ADMIN_PW: "{{ netbird_target.netbird_ssh_identities.admin.password }}"
-        PROBE_ADMIN_KEY: "{{ netbird_target.netbird_ssh_identities.admin.privkey }}"
-        PROBE_ROOT_USER: "{{ netbird_target.netbird_ssh_identities.root.user }}"
-        PROBE_ROOT_PW: "{{ netbird_target.netbird_ssh_identities.root.password }}"
-        PROBE_ROOT_KEY: "{{ netbird_target.netbird_ssh_identities.root.privkey }}"
-      register: netbird_probe
+        PROBE_ANSIBLE_USER: "{{ netbird_target.host_ssh_identities.ansible.user }}"
+        PROBE_ANSIBLE_PW: "{{ netbird_target.host_ssh_identities.ansible.password }}"
+        PROBE_ANSIBLE_KEY: "{{ netbird_target.host_ssh_identities.ansible.privkey }}"
+        PROBE_ADMIN_USER: "{{ netbird_target.host_ssh_identities.admin.user }}"
+        PROBE_ADMIN_PW: "{{ netbird_target.host_ssh_identities.admin.password }}"
+        PROBE_ADMIN_KEY: "{{ netbird_target.host_ssh_identities.admin.privkey }}"
+        PROBE_ROOT_USER: "{{ netbird_target.host_ssh_identities.root.user }}"
+        PROBE_ROOT_PW: "{{ netbird_target.host_ssh_identities.root.password }}"
+        PROBE_ROOT_KEY: "{{ netbird_target.host_ssh_identities.root.privkey }}"
+      register: probe
       changed_when: false
       no_log: true
       failed_when: false
@@ -79,7 +79,7 @@
     - name: "[Probe] Fail if no identity can connect"
       ansible.builtin.assert:
         that:
-          - netbird_probe.rc == 0
+          - probe.rc == 0
         fail_msg: >-
           Could not log in as ansible, admin or root with the configured
           credentials. Check inventory/host_vars/<host>/vault.yml
@@ -87,27 +87,27 @@
 
     - name: "[Probe] Record the working identity"
       ansible.builtin.set_fact:
-        netbird_probe_identity: "{{ netbird_probe.stdout | trim }}"
+        probe_identity: "{{ probe.stdout | trim }}"
     - name: "[Probe] Resolve the chosen connection settings"
       ansible.builtin.set_fact:
-        netbird_probe_chosen: "{{ netbird_target.netbird_ssh_identities[netbird_probe_identity | lower] }}"
+        probe_chosen: "{{ netbird_target.host_ssh_identities[probe_identity | lower] }}"
 
     - name: "[Probe] Register the target with the chosen identity"
       ansible.builtin.add_host:
         name: "{{ groups['netbird'][0] }}"
         groups: netbird_bootstrap
-        netbird_probe_identity: "{{ netbird_probe.stdout | trim }}"
-        ansible_host: "{{ netbird_probe_host }}"
-        ansible_port: "{{ netbird_probe_port }}"
-        ansible_user: "{{ netbird_probe_chosen.user }}"
-        ansible_password: "{{ netbird_probe_chosen.password }}"
-        ansible_ssh_private_key_file: "{{ netbird_probe_chosen.privkey }}"
-        ansible_become: "{{ netbird_probe_chosen.become }}"
+        probe_identity: "{{ probe.stdout | trim }}"
+        ansible_host: "{{ probe_host }}"
+        ansible_port: "{{ probe_port }}"
+        ansible_user: "{{ probe_chosen.user }}"
+        ansible_password: "{{ probe_chosen.password }}"
+        ansible_ssh_private_key_file: "{{ probe_chosen.privkey }}"
+        ansible_become: "{{ probe_chosen.become }}"
         ansible_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
 
     - name: "[Probe] Report the working identity"
       ansible.builtin.debug:
-        msg: "Connected as '{{ netbird_probe_identity }}' ({{ netbird_probe_chosen.user }})."
+        msg: "Connected as '{{ probe_identity }}' ({{ probe_chosen.user }})."
 
 - name: Bootstrap host system tuning
   hosts: netbird_bootstrap
@@ -147,7 +147,7 @@
         owner: root
         group: root
         mode: "0644"
-      register: netbird_apt_sources
+      register: apt_sources
       when: host_apt_mirror | default('') | length > 0
 
     - name: "[Bootstrap] Refresh the APT cache"
@@ -155,14 +155,14 @@
         update_cache: true
       when:
         - host_apt_mirror | default('') | length > 0
-        - netbird_apt_sources.changed | default(false)
+        - apt_sources.changed | default(false)
 
     # --------------------------------------------------------------------------
     # Docker Hub registry mirrors
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Check that Docker is installed"
       ansible.builtin.command: docker --version
-      register: netbird_bootstrap_docker
+      register: bootstrap_docker
       changed_when: false
       failed_when: false
       when: docker_registry_mirrors | default([]) | length > 0
@@ -170,7 +170,7 @@
     - name: "[Bootstrap] Assert Docker is installed for registry mirrors"
       ansible.builtin.assert:
         that:
-          - netbird_bootstrap_docker.rc | default(1) == 0
+          - bootstrap_docker.rc | default(1) == 0
         fail_msg: >-
           docker_registry_mirrors is set but Docker is not installed on
           {{ inventory_hostname }}; install Docker first.
@@ -179,14 +179,14 @@
     - name: "[Bootstrap] Read the existing Docker daemon.json (if any)"
       ansible.builtin.slurp:
         src: /etc/docker/daemon.json
-      register: netbird_bootstrap_daemon
+      register: bootstrap_daemon
       failed_when: false
       when: docker_registry_mirrors | default([]) | length > 0
 
     - name: "[Bootstrap] Merge registry mirrors into daemon.json"
       ansible.builtin.copy:
         content: >-
-          {{ (netbird_bootstrap_daemon.content | default('e30=') | b64decode | from_json)
+          {{ (bootstrap_daemon.content | default('e30=') | b64decode | from_json)
              | combine({'registry-mirrors': docker_registry_mirrors}) | to_nice_json }}
         dest: /etc/docker/daemon.json
         owner: root
@@ -200,8 +200,8 @@
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
-        netbird_bootstrap_service_user: "{{ host_bootstrap_user | default('ansible') }}"
-        netbird_bootstrap_use_key: "{{ vault_ansible_ssh_pubkey_file | default('') | length > 0 }}"
+        bootstrap_service_user: "{{ host_bootstrap_user | default('ansible') }}"
+        bootstrap_use_key: "{{ vault_ansible_ssh_pubkey_file | default('') | length > 0 }}"
 
     - name: "[Bootstrap] Provision a service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -214,7 +214,7 @@
           - var: "vault_ansible_password"
             type: "base64"
             length: 18
-      when: not (netbird_bootstrap_use_key | bool)
+      when: not (bootstrap_use_key | bool)
 
     - name: "[Bootstrap] Resolve the effective service-account password"
       ansible.builtin.set_fact:
@@ -222,26 +222,26 @@
           {{ host_bootstrap_password
              if (host_bootstrap_password | default('') | length > 0)
              else (vault_ansible_password | default('')) }}
-      when: not (netbird_bootstrap_use_key | bool)
+      when: not (bootstrap_use_key | bool)
 
     - name: "[Bootstrap] Create/repair the service account"
       ansible.builtin.user:
-        name: "{{ netbird_bootstrap_service_user }}"
+        name: "{{ bootstrap_service_user }}"
         groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
         append: true
         shell: /bin/bash
         create_home: true
         state: present
-      when: netbird_probe_identity | lower != 'ansible'
+      when: probe_identity | lower != 'ansible'
 
     - name: "[Bootstrap] Set the account password (password-auth mode)"
       ansible.builtin.user:
-        name: "{{ netbird_bootstrap_service_user }}"
+        name: "{{ bootstrap_service_user }}"
         password: "{{ host_bootstrap_password_final | password_hash('sha512', 'netbirdiacsalt') }}"
         update_password: always
       when:
-        - netbird_probe_identity | lower != 'ansible'
-        - not (netbird_bootstrap_use_key | bool)
+        - probe_identity | lower != 'ansible'
+        - not (bootstrap_use_key | bool)
 
     # --------------------------------------------------------------------------
     # SSH public keys (per identity, opt-in): authorize every explicitly supplied
@@ -250,9 +250,9 @@
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the explicitly supplied public keys"
       ansible.builtin.set_fact:
-        netbird_bootstrap_pubkey_specs: >-
+        bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
-          {%- for id, ident in netbird_ssh_identities.items() -%}
+          {%- for id, ident in host_ssh_identities.items() -%}
           {%-   if (ident.pubkey | default('') | string | trim) | length > 0 -%}
           {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
           {%-   endif -%}
@@ -262,10 +262,10 @@
     - name: "[Bootstrap] Read the supplied public key files"
       ansible.builtin.slurp:
         src: "{{ item.path }}"
-      register: netbird_bootstrap_pubkey_files
+      register: bootstrap_pubkey_files
       delegate_to: localhost
       become: false
-      loop: "{{ netbird_bootstrap_pubkey_specs }}"
+      loop: "{{ bootstrap_pubkey_specs }}"
       loop_control:
         label: "{{ item.id }}"
 
@@ -273,25 +273,25 @@
       ansible.builtin.getent:
         database: passwd
         key: "{{ item.user }}"
-      register: netbird_bootstrap_pubkey_users
+      register: bootstrap_pubkey_users
       failed_when: false
-      loop: "{{ netbird_bootstrap_pubkey_specs }}"
+      loop: "{{ bootstrap_pubkey_specs }}"
       loop_control:
         label: "{{ item.id }}"
 
     - name: "[Bootstrap] Fail if a public key targets a missing account"
       ansible.builtin.assert:
         that:
-          - netbird_bootstrap_pubkey_users.results | default([])
+          - bootstrap_pubkey_users.results | default([])
             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
         fail_msg: >-
           vault_<id>_ssh_pubkey_file is set for account(s) that do not exist on
           {{ inventory_hostname }}:
-          {{ netbird_bootstrap_pubkey_users.results | default([])
+          {{ bootstrap_pubkey_users.results | default([])
              | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')
              | map(attribute='item.user') | join(', ') }}.
           Create the account(s) or clear the pubkey path(s).
-      when: netbird_bootstrap_pubkey_specs | length > 0
+      when: bootstrap_pubkey_specs | length > 0
 
     - name: "[Bootstrap] Ensure each account's .ssh directory exists"
       ansible.builtin.file:
@@ -300,7 +300,7 @@
         owner: "{{ item.item.user }}"
         group: "{{ item.item.user }}"
         mode: "0700"
-      loop: "{{ netbird_bootstrap_pubkey_files.results | default([]) }}"
+      loop: "{{ bootstrap_pubkey_files.results | default([]) }}"
       loop_control:
         label: "{{ item.item.id }}"
 
@@ -312,14 +312,14 @@
         owner: "{{ item.item.user }}"
         group: "{{ item.item.user }}"
         mode: "0600"
-      loop: "{{ netbird_bootstrap_pubkey_files.results | default([]) }}"
+      loop: "{{ bootstrap_pubkey_files.results | default([]) }}"
       loop_control:
         label: "{{ item.item.id }}"
 
     - name: "[Bootstrap] Grant passwordless sudo"
       ansible.builtin.copy:
-        content: "{{ netbird_bootstrap_service_user }} ALL=(ALL) NOPASSWD:ALL\n"
-        dest: "/etc/sudoers.d/90-netbird-{{ netbird_bootstrap_service_user }}"
+        content: "{{ bootstrap_service_user }} ALL=(ALL) NOPASSWD:ALL\n"
+        dest: "/etc/sudoers.d/90-netbird-{{ bootstrap_service_user }}"
         owner: root
         group: root
         mode: "0440"
@@ -329,7 +329,7 @@
     - name: "[Bootstrap] Report the outcome"
       ansible.builtin.debug:
         msg: >-
-          Probed as '{{ netbird_probe_identity }}'. Service account
-          '{{ netbird_bootstrap_service_user }}' should exist; subsequent runs
+          Probed as '{{ probe_identity }}'. Service account
+          '{{ bootstrap_service_user }}' should exist; subsequent runs
           connect as it via vault_{ansible,admin,root}_* in
           inventory/host_vars/{{ inventory_hostname }}/vault.yml.

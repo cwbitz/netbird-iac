@@ -13,7 +13,7 @@
 # --- Topology ----------------------------------------------------------------
 # ansible_host comes from hosts.yml; the port comes from the per-host topology
 # map in vault.yml (flat: vault_host = {ip, port}).
-ansible_port: "{{ vault_host.port | default(22) }}"
+host_ssh_port: "{{ vault_host.port | default(22) }}"
 
 # --- SSH connection identity -------------------------------------------------
 # `host-bootstrap` probes [ansible, admin, root] and uses the first that works.
@@ -24,7 +24,7 @@ ansible_port: "{{ vault_host.port | default(22) }}"
 # `pubkey` is an optional control-node path to the matching public key. When set,
 # `host-bootstrap` authorizes it for that account on the target host; when empty
 # it is ignored (keys are never auto-generated). Only paths, never raw strings.
-netbird_ssh_identities:
+host_ssh_identities:
   root:
     user: "{{ vault_root_user | default('root') }}"
     password: "{{ vault_root_password | default('') }}"
@@ -44,25 +44,33 @@ netbird_ssh_identities:
     pubkey: "{{ vault_ansible_ssh_pubkey_file | default('') }}"
     become: true
 
-netbird_identity: "{{ netbird_ssh_identities['ansible'] }}"
-ansible_user: "{{ netbird_identity.user }}"
-ansible_password: "{{ netbird_identity.password }}"
-ansible_ssh_private_key_file: "{{ netbird_identity.privkey }}"
-ansible_become: "{{ netbird_identity.become }}"
+host_ssh_identity: "{{ host_ssh_identities['ansible'] }}"
+host_ssh_user: "{{ host_ssh_identity.user }}"
+host_ssh_password: "{{ host_ssh_identity.password }}"
+host_ssh_privkey_file: "{{ host_ssh_identity.privkey }}"
+host_ssh_become: "{{ host_ssh_identity.become }}"
 # Prefer key, then password, at the SSH layer (single password prompt max).
-ansible_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+host_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+
+# Ansible connection-plugin interface (fixed names; sourced from host_ssh_*).
+ansible_port: "{{ host_ssh_port }}"
+ansible_user: "{{ host_ssh_user }}"
+ansible_password: "{{ host_ssh_password }}"
+ansible_ssh_private_key_file: "{{ host_ssh_privkey_file }}"
+ansible_become: "{{ host_ssh_become }}"
+ansible_ssh_common_args: "{{ host_ssh_common_args }}"
 
 # --- Public endpoint (aliases over vault) ------------------------------------
 # The FQDN the server is reachable at; its A record must point at this host and
 # ports 80/443 TCP + 3478 UDP must be open. Used as the OIDC issuer, the
 # dashboard host and the TLS certificate subject.
-netbird_domain: "{{ vault_domain_name }}"
-netbird_letsencrypt_email: "{{ vault_letsencrypt_email }}"
+domain_name: "{{ vault_domain_name }}"
+letsencrypt_email: "{{ vault_letsencrypt_email }}"
 
 # --- Optional first-owner bootstrap ------------------------------------------
-# When netbird_owner_email is set the role creates the first owner through the
+# When owner_email is set the role creates the first owner through the
 # unauthenticated /api/setup endpoint (only works while the instance has no
-# accounts). If netbird_owner_password is also set it is used; if it is empty a
+# accounts). If owner_password is also set it is used; if it is empty a
 # password is generated into the encrypted vault_managed.yml. Leave the email
 # empty to onboard manually at https://<domain>/setup (a password set without an
 # email is not applied and produces a warning).
@@ -72,13 +80,13 @@ netbird_letsencrypt_email: "{{ vault_letsencrypt_email }}"
 # token, creates an 'admin' service user and a Personal Access Token for it,
 # persists that token as vault_admin_service_user_access_token in
 # vault_managed.yml, then deletes the owner access token again.
-netbird_owner_email: "{{ vault_owner_email | default('') }}"
-netbird_owner_name: "{{ vault_owner_name | default('') }}"
-netbird_owner_password: "{{ vault_owner_password | default('') }}"
+owner_email: "{{ vault_owner_email | default('') }}"
+owner_name: "{{ vault_owner_name | default('') }}"
+owner_password: "{{ vault_owner_password | default('') }}"
 
 # [OPTIONAL] Skip the startup GeoLite2 download (needs outbound access to
 # pkgs.netbird.io; set true on air-gapped/slow-CDN hosts — see AGENTS.md).
-# netbird_disable_geolite_update: true
+# disable_geolite_update: true
 
 # --- Optional host bootstrap (make host-bootstrap) ---------------------------
 # Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.

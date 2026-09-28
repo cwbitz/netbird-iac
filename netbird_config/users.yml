@@ -3,7 +3,7 @@
 # Users and service users (desired state).
 # This file is NOT part of the collection's Config-as-Code skeleton; it is
 # applied by playbooks/tenant.yml via the netbird_user module (run AFTER groups
-# exist, and only when netbird_tenant_commit=true).
+# exist, and only when tenant_commit=true).
 #
 # Notes:
 # - With the embedded Dex IdP, a newly created user's password is generated and

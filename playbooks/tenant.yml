@@ -7,7 +7,7 @@
 #                        DNS, and access policies (name-based, ordered, diffable)
 # plus a small users.yml applied via the netbird_user module.
 #
-# PREVIEW BY DEFAULT: nothing is changed unless netbird_tenant_commit=true.
+# PREVIEW BY DEFAULT: nothing is changed unless tenant_commit=true.
 #   make netbird-plan          # read-only diff
 #   make netbird-apply         # apply
 #   make netbird-apply-strict  # apply + remove unmanaged resources
@@ -22,18 +22,18 @@
   connection: local
   gather_facts: false
   vars:
-    netbird_config_dir: "{{ playbook_dir }}/../netbird_config"
-    netbird_api_url: "https://{{ netbird_domain }}"
+    config_dir: "{{ playbook_dir }}/../netbird_config"
+    netbird_api_url: "https://{{ domain_name }}"
     netbird_api_token: "{{ vault_admin_service_user_access_token | default(vault_pat | default('')) }}"
     netbird_validate_certs: true
-    netbird_tenant_commit: false
-    netbird_tenant_strict: false
+    tenant_commit: false
+    tenant_strict: false
     # Run the API modules with the control node's Ansible Python (connection is
     # local); avoids interpreter-discovery picking a non-existent system Python.
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
 
   tasks:
-    - name: "[Tenant] Assert an API token is configured"
+    - name: "[Tenant] Assert an access token is configured"
       ansible.builtin.assert:
         that:
           - netbird_api_token | length > 0
@@ -54,17 +54,17 @@
         validate_certs: "{{ netbird_validate_certs }}"
         status_code: [200, 401, 403]
         return_content: false
-      register: netbird_token_probe
+      register: token_probe
       changed_when: false
       no_log: true
 
     - name: "[Tenant] Stop with recovery instructions when the token is rejected"
       ansible.builtin.assert:
         that:
-          - netbird_token_probe.status | default(0) == 200
+          - token_probe.status | default(0) == 200
         fail_msg: >-
           The NetBird access token was rejected (HTTP
-          {{ netbird_token_probe.status | default('n/a') }}). Personal Access
+          {{ token_probe.status | default('n/a') }}). Personal Access
           Tokens expire (NetBird caps them at 365 days) and cannot be renewed
           once invalid. Recreate one: log in to the Dashboard as the owner
           ({{ netbird_api_url }}), open Team -> Service Users -> 'admin' ->
@@ -81,9 +81,8 @@
       ansible.builtin.include_role:
         name: community.ansible_netbird.configure
       vars:
-        config_dir: "{{ netbird_config_dir }}"
-        commit: "{{ netbird_tenant_commit }}"
-        strict: "{{ netbird_tenant_strict }}"
+        commit: "{{ tenant_commit }}"
+        strict: "{{ tenant_strict }}"
 
     # --------------------------------------------------------------------------
     # Users and service users are not covered by the collection's Config-as-Code
@@ -92,10 +91,10 @@
     # --------------------------------------------------------------------------
     - name: "[Tenant] Load the user definitions"
       ansible.builtin.include_vars:
-        file: "{{ netbird_config_dir }}/users.yml"
-        name: netbird_tenant_users_file
+        file: "{{ config_dir }}/users.yml"
+        name: tenant_users_file
       failed_when: false
-      when: netbird_tenant_commit | bool
+      when: tenant_commit | bool
 
     - name: "[Tenant] Manage users and service users"
       community.ansible_netbird.netbird_user:
@@ -109,12 +108,12 @@
         is_service_user: "{{ item.is_service_user | default(false) }}"
         state: "{{ item.state | default('present') }}"
       loop: >-
-        {{ (netbird_tenant_users_file.netbird_users | default([]))
-           + (netbird_tenant_users_file.netbird_service_users | default([])) }}
+        {{ (tenant_users_file.netbird_users | default([]))
+           + (tenant_users_file.netbird_service_users | default([])) }}
       loop_control:
         label: "{{ item.name | default(item.email) }}"
       no_log: true
       when:
-        - netbird_tenant_commit | bool
-        - ((netbird_tenant_users_file.netbird_users | default([]) | length)
-           + (netbird_tenant_users_file.netbird_service_users | default([]) | length)) > 0
+        - tenant_commit | bool
+        - ((tenant_users_file.netbird_users | default([]) | length)
+           + (tenant_users_file.netbird_service_users | default([]) | length)) > 0
