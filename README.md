@@ -158,6 +158,17 @@ Team → Service Users). What you can and cannot codify:
 `*` = the *declaration* is code, but a one-time secret is not reproducible; store
 it in a secret manager.
 
+Some options need infrastructure beyond the server (unset ones are simply
+skipped):
+- `netbird_an_settings` needs the account's agent-network to be bootstrapped
+  first (the collection role never passes `proxy_address`/`endpoint`, so on a
+  fresh account it fails with "Agent-network settings have not been
+  bootstrapped"; bootstrap it once out-of-band or leave it unset).
+  `netbird_an_providers` needs a real upstream credential (validated at creation
+  time); `netbird_an_policies` needs at least one provider.
+- `netbird_networks.routers` needs an enrolled peer, and `netbird_services` /
+  `netbird_service_domains` need a registered proxy cluster.
+
 ## Backup & restore
 
 ```bash

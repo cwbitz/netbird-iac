@@ -126,6 +126,15 @@ Team → Service Users 建 `admin` service user 及其 access token）。
 
 `*` = 声明可代码化，但一次性密钥不可复现，需另存密码管理器。
 
+部分选项需要服务器之外的额外基础设施（未设置的选项会被跳过）：
+- `netbird_an_settings` 要求账号的 agent-network 已先 bootstrap（服务器需要
+  `proxy_address` 或 `endpoint`）；collection 的 configure 角色不会传这两个参数，
+  因此全新账号会报 "Agent-network settings have not been bootstrapped"——请先在
+  带外完成 bootstrap，或保持该项未设置。`netbird_an_providers` 需真实上游凭据
+  （创建时校验）；`netbird_an_policies` 需至少一个 provider。
+- `netbird_networks.routers` 需已入网的 peer；`netbird_services` /
+  `netbird_service_domains` 需已注册的 proxy cluster。
+
 ## 备份与恢复
 
 ```bash

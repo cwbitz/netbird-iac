@@ -167,6 +167,12 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # netbird_service_domains: []
 #
 # --- Agent Network (agent_network.yml) ---------------------------------------
+# NOTE: on an account that has never bootstrapped agent-network, the settings
+# module fails with "Agent-network settings have not been bootstrapped", because
+# the collection's configure role does not pass the required proxy_address /
+# endpoint. Bootstrap the account once out-of-band first, or leave
+# netbird_an_settings unset. Providers also need a real upstream credential
+# (the server validates it at creation time).
 # netbird_an_settings: {}
 # netbird_an_providers: []
 # netbird_an_guardrails: []

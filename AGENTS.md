@@ -163,6 +163,17 @@ installation is Debian-family only.
   default, in `inventory/group_vars/netbird/main.yml`) and applied with
   `community.docker.docker_compose_v2`. Rendering is the source of truth; never
   edit the files on the target host.
+- Tenant `netbird_an_settings` requires agent-network to be **bootstrapped**
+  first (the server needs a `proxy_address` or `endpoint`); the collection's
+  `configure` role never passes either, so on a fresh account it fails with
+  "Agent-network settings have not been bootstrapped" — leave it unset until the
+  account is bootstrapped out-of-band. Related agent-network prerequisites:
+  `netbird_an_providers` needs a real upstream credential (validated at creation
+  time), and `netbird_an_policies` needs at least one provider.
+- A few tenant options need infrastructure beyond the server itself:
+  `netbird_networks.routers` needs an enrolled peer, and `netbird_services` /
+  `netbird_service_domains` need a registered proxy cluster. Unset options are
+  skipped (the role only acts on non-empty variables).
 
 ## Role layout
 
