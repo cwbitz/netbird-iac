@@ -30,8 +30,9 @@ quickstart, but idempotently and version-controlled.
 - A Linux VM with at least 1 CPU / 2 GB RAM, publicly reachable on **TCP 80 and
   443** and **UDP 3478**.
 - A **public domain** whose A record points at the VM.
-- Docker Engine + the Compose v2 plugin **preinstalled** (this project never
-  installs Docker).
+- Docker Engine + the Compose v2 plugin. Installed automatically from Docker's
+  official repository when missing (Debian-family); set `install_docker: false`
+  to require a preinstalled Docker instead.
 - On the control node: `mise` or `asdf`, `openssl`, and SSH access to the host.
 
 ## Quickstart
@@ -67,14 +68,17 @@ make host-bootstrap
 ```
 
 `make host-bootstrap` probes `ansible → admin → root` and uses the first that
-works; when it is not `ansible` it creates the account. For each identity whose
-`vault_<id>_ssh_pubkey_file` is set, the public key at that path is authorized
-for the matching account (`ansible`, `admin` or `root`); an unset path is ignored
-(keys are never generated). For `ansible`, when no public key is given a password
-is set instead (generated into the encrypted vault). The matching private key
-path is `vault_<id>_ssh_privkey_file` (set explicitly next to the public key
-path; only paths are accepted, never raw key strings). It is also where region
-mirrors are configured (see below).
+works; when it is not `ansible` it creates the account. It also ensures Docker
+Engine + Compose v2 are present (installing Docker CE when missing). For each
+identity whose `vault_<id>_ssh_pubkey_file` is set, the public key at that path
+is authorized for the matching account (`ansible`, `admin` or `root`); an unset
+path is ignored (keys are never generated). For `ansible`, when no public key is
+given a password is set instead (generated into the encrypted vault). When the
+`admin` identity is configured (a password and/or public key), the account is
+created if absent, its password is set and its key authorized. The matching
+private key path is `vault_<id>_ssh_privkey_file` (set explicitly next to the
+public key path; only paths are accepted, never raw key strings). It is also
+where region mirrors are configured (see below).
 
 When `owner_email` is set in the vault, the play creates the first owner
 automatically through `/api/setup`; if `owner_password` is empty, one is

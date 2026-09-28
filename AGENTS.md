@@ -20,8 +20,10 @@ roles, or templates. The entry playbooks are `playbooks/site.yml` (server deploy
 and `playbooks/tenant.yml` (tenant config-as-code).
 
 **Supported platform**: Debian-family Linux with Docker Engine + the Compose v2
-plugin preinstalled. The playbook only *checks* for Docker and fails with
-install guidance; it never installs Docker. Non-Debian support is best-effort.
+plugin. When Docker is missing the preflight installs Docker CE from Docker's
+official apt repository (disable with `install_docker: false`, which then fails
+with install guidance). Non-Debian support is best-effort; automatic Docker
+installation is Debian-family only.
 
 ## Secrets and local-only files
 
@@ -79,10 +81,12 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
 - `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` and
   `inventory/host_vars/<name>/` from the committed `example/` template.
 - `make host-bootstrap` — **optional, opt-in** host tuning (not part of
-  `ans-site`): set a Debian APT mirror (`host_apt_mirror` +
+  `ans-site`): ensures Docker Engine + Compose v2 (installing Docker CE when
+  missing), sets a Debian APT mirror (`host_apt_mirror` +
   `host_apt_security_mirror`) and/or Docker Hub mirrors
-  (`docker_registry_mirrors`) for region-restricted hosts (e.g. China VPS). No-op
-  unless those vars are set.
+  (`docker_registry_mirrors`) for region-restricted hosts (e.g. China VPS), and
+  creates the `ansible` service account plus any configured `admin` account. The
+  mirror parts are no-ops unless those vars are set.
 - `make ans-lint` — `--syntax-check` + `ansible-lint`.
 - `make ans-check` / `make ans-site` — dry-run / full deploy (add `TAGS=...`).
 - `make ans-tags TAGS=<tag>` — focused run. Tags: `netbird`, `netbird_preflight`,
@@ -141,7 +145,10 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   it creates `ansible`. Every explicitly set `vault_{root,admin,ansible}_ssh_pubkey_file`
   is authorized for the matching account (unset -> ignored, never generated); for
   `ansible` a missing key falls back to a password (`host_bootstrap_password`,
-  else generated into `vault_ansible_password`).
+  else generated into `vault_ansible_password`). When the `admin` identity is
+  configured (password and/or public key), its account is created if absent,
+  its password set and its key authorized; both `ansible` and that `admin`
+  account get passwordless sudo.
 - `vault_managed.yml` must never be plaintext: `vault_secrets_dispatch` calls
   `helpers/ensure_vault_encrypted` to re-encrypt a plaintext file in place (e.g.
   after a restore), and `backup.yml` does the same before copying.
@@ -161,11 +168,12 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
 - `playbooks/site.yml` — server preflight + the `netbird_server` role.
 - `playbooks/bootstrap.yml` — **optional, opt-in** host system tuning: APT mirror
   (`host_apt_mirror`, security mirror derived) + Docker registry mirrors
-  (`docker_registry_mirrors`), plus it probes the SSH identities and **creates the
+  (`docker_registry_mirrors`), ensures Docker Engine + Compose v2 (installing
+  Docker CE when missing), plus it probes the SSH identities and **creates the
   least-privilege `ansible` service account when not already connected as it**
-  (authorizes each identity's `vault_*_ssh_pubkey_file` when set; for `ansible`,
-  else a password) + NOPASSWD sudo. Never runs as part of `site.yml`.
-  Debian-family only for the APT part.
+  and any **configured `admin` account** (authorizes each identity's
+  `vault_*_ssh_pubkey_file` when set; for `ansible`, else a password) + NOPASSWD
+  sudo. Never runs as part of `site.yml`. Debian-family only for the APT part.
 - `playbooks/backup.yml` / `playbooks/restore.yml` — stop-container backup of the
   `netbird_data` volume + `vault_managed.yml`, and the paired restore.
 - `playbooks/tenant.yml` — tenant config-as-code. Runs on `localhost`
@@ -185,6 +193,9 @@ install guidance; it never installs Docker. Non-Debian support is best-effort.
   `include_role` + `tasks_from`. Flat, self-contained entry points with a
   caller-named parameter contract:
   - `control_node_prereqs.yml` — openssl availability check.
+  - `install_docker.yml` — idempotently install Docker Engine + Compose v2 from
+    Docker's official apt repo when missing (param `install_docker`, default
+    true; false makes a missing Docker fatal).
   - `vault_secrets_dispatch.yml` / `vault_secrets_generate.yml` — per-host
     encrypted secret provisioning (params `vault_secrets_component`,
     `vault_secrets_vault_file`, `vault_secrets_list`).

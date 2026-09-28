@@ -17,7 +17,8 @@
 
 - 一台 Linux VM（≥ 1 CPU / 2 GB），公网可达 **TCP 80/443** 与 **UDP 3478**。
 - 一个 **公网域名**，A 记录指向该 VM。
-- 预装 Docker Engine + Compose v2 插件（本项目**不安装** Docker）。
+- Docker Engine + Compose v2 插件；缺失时自动从 Docker 官方源安装（Debian 系）；
+  设 `install_docker: false` 可改为要求预装。
 - 控制端：`mise` 或 `asdf`、`openssl`，以及对主机的 SSH 访问。
 
 ## 快速开始
@@ -46,9 +47,11 @@ make host-bootstrap      # 创建 ansible 账号 + sudo
 ```
 
 `host-bootstrap` 会按 `ansible → admin → root` 顺序探测，用第一个能登录的身份；若非
-ansible，则创建该账号。对每个设置了 `vault_<id>_ssh_pubkey_file` 的身份，会把该路径的
+ansible，则创建该服务账号，并确保 Docker Engine + Compose v2 已安装（缺失时安装 Docker
+CE）。对每个设置了 `vault_<id>_ssh_pubkey_file` 的身份，会把该路径的
 公钥写入被控机对应账号（`ansible` / `admin` / `root`）；留空则忽略（不会自动生成密钥）。
-ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）。对应的私钥路径由
+ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）。当 `admin` 身份被配置（提供
+密码和/或公钥）时，会自动创建该账号、设置密码并授权公钥。对应的私钥路径由
 `vault_<id>_ssh_privkey_file` 显式指定（与公钥路径同处 vault.yml，仅接受路径，不接受
 内联公钥字符串）。镜像源也在这里配置（见下）。
 
