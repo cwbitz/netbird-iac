@@ -158,6 +158,14 @@
         - apt_sources.changed | default(false)
 
     # --------------------------------------------------------------------------
+    # Docker Engine (auto-install when missing)
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Ensure Docker Engine and the Compose v2 plugin are present"
+      ansible.builtin.include_role:
+        name: helpers
+        tasks_from: install_docker
+
+    # --------------------------------------------------------------------------
     # Docker Hub registry mirrors
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Check that Docker is installed"

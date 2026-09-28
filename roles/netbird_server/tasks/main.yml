@@ -29,25 +29,11 @@
   delegate_to: localhost
   become: false
 
-- name: "[NetBird] Check Docker Engine and the Compose v2 plugin on the host"
+- name: "[NetBird] Ensure Docker Engine and the Compose v2 plugin are present"
   tags: [netbird, netbird_preflight]
-  ansible.builtin.command: docker compose version
-  register: compose_check
-  changed_when: false
-  failed_when: false
-  check_mode: false
-
-- name: "[NetBird] Fail early if Docker Engine + Compose v2 are missing"
-  tags: [netbird, netbird_preflight]
-  ansible.builtin.assert:
-    that:
-      - compose_check.rc == 0
-    fail_msg: >-
-      Docker Engine with the Compose v2 plugin is required on
-      {{ inventory_hostname }} but was not found. Install Docker from
-      https://docs.docker.com/engine/install/ and re-run; this project never
-      installs Docker itself.
-  when: not ansible_check_mode
+  ansible.builtin.include_role:
+    name: helpers
+    tasks_from: install_docker
 
 - name: "[NetBird] Resolve the public domain from the control node (advisory)"
   tags: [netbird, netbird_preflight]

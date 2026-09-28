@@ -10,3 +10,9 @@
 # Directory on the target host that holds the rendered stack (docker-compose.yml,
 # config.yaml, dashboard.env) and the Docker named volume backing the data.
 stack_dir: "/opt/netbird"
+
+# Install Docker Engine + the Compose v2 plugin from Docker's official apt
+# repository when the host does not already have them (Debian-family only). Set
+# to false to require Docker to be preinstalled; a missing Docker then fails the
+# preflight with install guidance instead.
+install_docker: true

@@ -1,0 +1,106 @@
+---
+# ==============================================================================
+# Install Docker Engine + the Compose v2 plugin when missing
+# (roles/helpers/tasks/install_docker.yml)
+#
+# Idempotent: a no-op when `docker compose version` already succeeds. Otherwise
+# installs Docker CE from the official Docker apt repository (Debian-family).
+# No-op-safe to include from several components.
+#
+# Optional parameter (via include vars):
+#   install_docker  bool, default true. When false, a missing Docker is fatal
+#                   with install guidance instead of being installed.
+# ==============================================================================
+
+- name: "[Docker] Detect Docker Engine + the Compose v2 plugin"
+  ansible.builtin.command: docker compose version
+  register: install_docker_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: "[Docker] Refuse to run without Docker when installation is disabled"
+  ansible.builtin.assert:
+    that:
+      - install_docker_probe.rc == 0
+    fail_msg: >-
+      Docker Engine with the Compose v2 plugin is required on
+      {{ inventory_hostname }} but is missing and automatic installation is
+      disabled (install_docker=false). Install it from
+      https://docs.docker.com/engine/install/ and re-run.
+  when:
+    - install_docker_probe.rc != 0
+    - not (install_docker | default(true) | bool)
+    - not ansible_check_mode
+
+- name: "[Docker] Install Docker CE from the official apt repository"
+  when:
+    - install_docker_probe.rc != 0
+    - install_docker | default(true) | bool
+    - not ansible_check_mode
+  block:
+    - name: "[Docker] Assert a Debian-family host"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == 'Debian'
+        fail_msg: >-
+          Automatic Docker installation is only supported on Debian-family
+          hosts. Install Docker on {{ inventory_hostname }} manually and
+          re-run, or set install_docker=false to require it preinstalled.
+
+    - name: "[Docker] Install the repository prerequisites"
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: "[Docker] Determine the package architecture"
+      ansible.builtin.command: dpkg --print-architecture
+      register: install_docker_arch
+      changed_when: false
+
+    - name: "[Docker] Ensure the apt keyring directory exists"
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: "[Docker] Download the Docker signing key"
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: "[Docker] Add the Docker apt repository"
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ install_docker_arch.stdout }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/debian
+          {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+        update_cache: true
+
+    - name: "[Docker] Install Docker Engine, CLI, containerd and Compose v2"
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: "[Docker] Enable and start the Docker service"
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
