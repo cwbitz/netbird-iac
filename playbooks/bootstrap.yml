@@ -92,18 +92,11 @@
       ansible.builtin.set_fact:
         probe_chosen: "{{ netbird_target.host_ssh_identities[probe_identity | lower] }}"
 
-    - name: "[Probe] Register the target with the chosen identity"
+    - name: "[Probe] Register the target in the bootstrap group"
       ansible.builtin.add_host:
         name: "{{ groups['netbird'][0] }}"
         groups: netbird_bootstrap
         probe_identity: "{{ probe.stdout | trim }}"
-        ansible_host: "{{ probe_host }}"
-        ansible_port: "{{ probe_port }}"
-        ansible_user: "{{ probe_chosen.user }}"
-        ansible_password: "{{ probe_chosen.password }}"
-        ansible_ssh_private_key_file: "{{ probe_chosen.privkey }}"
-        ansible_become: "{{ probe_chosen.become }}"
-        ansible_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
 
     - name: "[Probe] Report the working identity"
       ansible.builtin.debug:
@@ -112,6 +105,13 @@
 - name: Bootstrap host system tuning
   hosts: netbird_bootstrap
   gather_facts: true
+  # add_host vars rank below inventory host_vars, so the probed connection
+  # identity must be applied as play vars to actually take effect.
+  vars:
+    ansible_user: "{{ hostvars['localhost'].probe_chosen.user }}"
+    ansible_password: "{{ hostvars['localhost'].probe_chosen.password }}"
+    ansible_ssh_private_key_file: "{{ hostvars['localhost'].probe_chosen.privkey }}"
+    ansible_become: "{{ hostvars['localhost'].probe_chosen.become }}"
   handlers:
     - name: Restart docker
       ansible.builtin.systemd_service:
