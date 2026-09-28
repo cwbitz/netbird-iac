@@ -2,10 +2,28 @@
 # ==============================================================================
 # Apply the declarative NetBird tenant configuration (desired state as code).
 #
-# Uses the community.ansible_netbird collection's Config-as-Code workflow:
-#   netbird_config/  ->  settings, groups, posture checks, setup keys, networks,
-#                        DNS, and access policies (name-based, ordered, diffable)
-# plus a small users.yml applied via the netbird_user module.
+# The desired state is expressed as Ansible variables in the per-host vars
+# (inventory/host_vars/<host>/main.yml for non-secret values, vault.yml for
+# secrets/PII). Because the community.ansible_netbird configure role reads a
+# directory of raw YAML (it does not template), this play renders those
+# variables into a generated config directory and hands it to the role:
+#
+#   inventory/host_vars/<host>/{main,vault}.yml  ->  generated YAML  ->  API
+#
+# Generated directory (gitignored, regenerated every run, per host):
+#   .ansible_cache/tenant_config/<host>/
+#
+# Dumped every run from the variables below, so it is never hand-edited:
+#   netbird_settings, netbird_groups, netbird_posture_checks, netbird_policies,
+#   netbird_dns_nameserver_groups, netbird_dns_zones,
+#   netbird_dns_disabled_management_groups, netbird_networks,
+#   netbird_setup_keys, netbird_services, netbird_service_domains,
+#   netbird_an_settings, netbird_an_providers, netbird_an_guardrails,
+#   netbird_an_policies, netbird_an_budget_rules.
+#
+# Users/service users are NOT part of the collection's Config-as-Code model (it
+# ships a separate netbird_user module instead), so they are applied here
+# directly from netbird_users / netbird_service_users, gated on commit.
 #
 # PREVIEW BY DEFAULT: nothing is changed unless tenant_commit=true.
 #   make netbird-plan          # read-only diff
@@ -22,7 +40,9 @@
   connection: local
   gather_facts: false
   vars:
-    config_dir: "{{ playbook_dir }}/../netbird_config"
+    # Generated config directory (gitignored; see .ansible_cache/ in .gitignore).
+    tenant_build_dir: "{{ playbook_dir }}/../.ansible_cache/tenant_config/{{ inventory_hostname }}"
+    config_dir: "{{ tenant_build_dir }}"
     netbird_api_url: "https://{{ domain_name }}"
     netbird_api_token: "{{ vault_admin_service_user_access_token | default(vault_pat | default('')) }}"
     netbird_validate_certs: true
@@ -31,6 +51,10 @@
     # Run the API modules with the control node's Ansible Python (connection is
     # local); avoids interpreter-discovery picking a non-existent system Python.
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    # The tenant phase is local API work (no privilege needed). Disable the
+    # per-host become so the generated files and the collection's localhost
+    # operations run as the same non-root user.
+    ansible_become: false
 
   tasks:
     - name: "[Tenant] Assert an access token is configured"
@@ -73,9 +97,68 @@
           inventory/host_vars/{{ inventory_hostname }}/vault.yml and re-run.
 
     # --------------------------------------------------------------------------
+    # Generate the config directory the collection role consumes from the
+    # per-host variables (the role reads raw YAML and does not template).
+    # --------------------------------------------------------------------------
+    - name: "[Tenant] Clean the generated config directory"
+      ansible.builtin.file:
+        path: "{{ tenant_build_dir }}"
+        state: absent
+
+    - name: "[Tenant] Create the generated config directory tree"
+      ansible.builtin.file:
+        path: "{{ tenant_build_dir }}/{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - "."
+        - "access_control"
+        - "dns"
+
+    - name: "[Tenant] Render the single-variable config files"
+      ansible.builtin.copy:
+        dest: "{{ tenant_build_dir }}/{{ item.path }}"
+        content: "{{ {item.var: lookup('vars', item.var, default=item.default)} | to_nice_yaml(indent=2) }}"
+        mode: "0600"
+      loop:
+        - { path: "settings.yml", var: "netbird_settings", default: {} }
+        - { path: "access_control/groups.yml", var: "netbird_groups", default: [] }
+        - { path: "access_control/posture_checks.yml", var: "netbird_posture_checks", default: [] }
+        - { path: "access_control/policies.yml", var: "netbird_policies", default: [] }
+        - { path: "dns/nameservers.yml", var: "netbird_dns_nameserver_groups", default: [] }
+        - { path: "dns/zones.yml", var: "netbird_dns_zones", default: [] }
+        - { path: "dns/settings.yml", var: "netbird_dns_disabled_management_groups", default: [] }
+        - { path: "networks.yml", var: "netbird_networks", default: [] }
+        - { path: "setup_keys.yml", var: "netbird_setup_keys", default: [] }
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: "[Tenant] Render services.yml (two variables per file)"
+      ansible.builtin.copy:
+        dest: "{{ tenant_build_dir }}/services.yml"
+        content: >-
+          {{ { 'netbird_services': netbird_services | default([]),
+               'netbird_service_domains': netbird_service_domains | default([]) }
+             | to_nice_yaml(indent=2) }}
+        mode: "0600"
+
+    - name: "[Tenant] Render agent_network.yml (multiple variables per file)"
+      ansible.builtin.copy:
+        dest: "{{ tenant_build_dir }}/agent_network.yml"
+        content: >-
+          {{ { 'netbird_an_settings': netbird_an_settings | default({}),
+               'netbird_an_providers': netbird_an_providers | default([]),
+               'netbird_an_guardrails': netbird_an_guardrails | default([]),
+               'netbird_an_policies': netbird_an_policies | default([]),
+               'netbird_an_budget_rules': netbird_an_budget_rules | default([]) }
+             | to_nice_yaml(indent=2) }}
+        mode: "0600"
+
+    # --------------------------------------------------------------------------
     # Desired state: settings, groups, posture checks, setup keys, networks,
-    # DNS and policies. The role resolves plain names to IDs and applies in
-    # dependency order. With commit=false it only renders a read-only diff.
+    # DNS, services and policies. The role resolves plain names to IDs and
+    # applies in dependency order. With commit=false it only renders a read-only
+    # diff.
     # --------------------------------------------------------------------------
     - name: "[Tenant] Apply the config-as-code desired state"
       ansible.builtin.include_role:
@@ -86,14 +169,21 @@
 
     # --------------------------------------------------------------------------
     # Users and service users are not covered by the collection's Config-as-Code
-    # skeleton, so they are applied here via the netbird_user module. Runs only
-    # on commit (never during preview) and after groups exist.
+    # model (it ships a separate netbird_user module), so they are applied here
+    # from netbird_users / netbird_service_users. Runs only on commit (never
+    # during preview) and after groups exist.
     # --------------------------------------------------------------------------
-    - name: "[Tenant] Load the user definitions"
-      ansible.builtin.include_vars:
-        file: "{{ config_dir }}/users.yml"
-        name: tenant_users_file
-      failed_when: false
+    - name: "[Tenant] Build the flat user list (mark service users)"
+      ansible.builtin.set_fact:
+        tenant_users_flat: >-
+          {%- set ns = namespace(items=[]) -%}
+          {%- for u in (netbird_users | default([])) -%}
+          {%-   set _ = ns.items.append(u | combine({'is_service_user': u.is_service_user | default(false)})) -%}
+          {%- endfor -%}
+          {%- for u in (netbird_service_users | default([])) -%}
+          {%-   set _ = ns.items.append(u | combine({'is_service_user': u.is_service_user | default(true)})) -%}
+          {%- endfor -%}
+          {{ ns.items }}
       when: tenant_commit | bool
 
     - name: "[Tenant] Manage users and service users"
@@ -107,13 +197,10 @@
         auto_groups: "{{ item.auto_groups | default(omit) }}"
         is_service_user: "{{ item.is_service_user | default(false) }}"
         state: "{{ item.state | default('present') }}"
-      loop: >-
-        {{ (tenant_users_file.netbird_users | default([]))
-           + (tenant_users_file.netbird_service_users | default([])) }}
+      loop: "{{ tenant_users_flat | default([]) }}"
       loop_control:
         label: "{{ item.name | default(item.email) }}"
       no_log: true
       when:
         - tenant_commit | bool
-        - ((tenant_users_file.netbird_users | default([]) | length)
-           + (tenant_users_file.netbird_service_users | default([]) | length)) > 0
+        - (tenant_users_flat | default([]) | length) > 0

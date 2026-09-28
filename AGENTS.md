@@ -9,10 +9,11 @@ idempotently and version-controlled.
 This project deploys the **server**. The NetBird **client agent** is a different
 concern and lives in the sibling `docker-stack-iac` project. Tenant resources
 (users, groups, setup keys, policies, networks, DNS) are managed against the
-running server's REST API via the `community.ansible_netbird` collection; see
-`playbooks/tenant.yml` and `netbird_config/` (Config-as-Code). Note that **peers
-are enrolled devices, not codifiable state** — only their settings are managed;
-desired enrollment is expressed through groups/setup keys/policies.
+running server's REST API via the `community.ansible_netbird` collection; the
+desired state lives in the per-host vars (`host_vars/<host>/main.yml` /
+`vault.yml`) and is rendered by `playbooks/tenant.yml` (Config-as-Code). Note
+that **peers are enrolled devices, not codifiable state** — only their settings
+are managed; desired enrollment is expressed through groups/setup keys/policies.
 
 Managed hosts live in `inventory/hosts.yml` (local-only/gitignored; committed
 template `inventory/hosts.yml.example`) and must never be hardcoded into docs,
@@ -178,17 +179,27 @@ installation is Debian-family only.
   `netbird_data` volume + `vault_managed.yml`, and the paired restore.
 - `playbooks/tenant.yml` — tenant config-as-code. Runs on `localhost`
   (`connection: local`) against the server API using
-  `vault_admin_service_user_access_token`.
-  It includes the collection role `community.ansible_netbird.configure` with
-  `config_dir: netbird_config/`, `commit`/`strict` driven by
-  `tenant_commit`/`tenant_strict` (both default false = preview).
-  Users/service users (not in the collection's Config-as-Code skeleton) are
-  applied afterward via `netbird_user`, gated on commit.
-- `netbird_config/` — the declarative tenant desired state (versioned YAML):
-  `settings.yml`, `access_control/{groups,policies,posture_checks}.yml`,
-  `networks.yml`, `setup_keys.yml`, `dns/{nameservers,zones,settings}.yml`, and
-  `users.yml`. Plain names are resolved to IDs by the collection. If a file is
-  absent the collection tolerates it; keep the skeleton files present.
+  `vault_admin_service_user_access_token`. The collection's `configure` role
+  reads a directory of raw YAML and does not template, so the play first renders
+  the per-host desired-state variables into a generated directory
+  (`.ansible_cache/tenant_config/<host>/`, gitignored) and passes it as
+  `config_dir`; `commit`/`strict` are driven by `tenant_commit`/`tenant_strict`
+  (both default false = preview). Users/service users are not part of the
+  collection's Config-as-Code model (it ships a separate `netbird_user` module),
+  so they are applied afterward from `netbird_users` / `netbird_service_users`,
+  gated on commit.
+- Tenant desired state — expressed as Ansible variables in the per-host vars:
+  non-secret in `host_vars/<host>/main.yml`, secret/PII in `vault.yml`. The
+  variable names are the collection's native ones (`netbird_settings`,
+  `netbird_groups`, `netbird_posture_checks`, `netbird_policies`,
+  `netbird_dns_nameserver_groups`, `netbird_dns_zones`,
+  `netbird_dns_disabled_management_groups`, `netbird_networks`,
+  `netbird_setup_keys`, `netbird_services` + `netbird_service_domains`,
+  `netbird_an_settings` + `netbird_an_providers` + `netbird_an_guardrails` +
+  `netbird_an_policies` + `netbird_an_budget_rules`, and `netbird_users` /
+  `netbird_service_users`). Plain names are resolved to IDs by the collection.
+  The generated directory is never hand-edited; there is no committed
+  config directory.
 - `roles/helpers/` — a real role (no `tasks/main.yml`), always invoked via
   `include_role` + `tasks_from`. Flat, self-contained entry points with a
   caller-named parameter contract:
@@ -222,7 +233,7 @@ current (see `renovate.json`).
 - **In scope**: self-hosted server + dashboard + built-in Traefik, embedded Dex
   IdP (local users), optional first-owner bootstrap (which also provisions the
   `admin` service-user PAT for tenant automation), and
-  **tenant/ACL config-as-code** (`playbooks/tenant.yml` + `netbird_config/`:
+  **tenant/ACL config-as-code** (`playbooks/tenant.yml` + per-host vars:
   users/service users, groups, policies, posture checks, setup keys, networks,
   DNS, account settings, IdPs).
 - **Not codifiable** (inherent): **peers** are enrolled devices (only settings

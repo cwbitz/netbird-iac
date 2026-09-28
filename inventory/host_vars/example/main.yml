@@ -105,3 +105,85 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # set (host_bootstrap_password, else generated into the encrypted vault). The
 # matching private key path is set explicitly in the same vault
 # (vault_<id>_ssh_privkey_file). Only paths are accepted, never raw key strings.
+
+# ==============================================================================
+# Tenant configuration (playbooks/tenant.yml)
+# ==============================================================================
+# Desired state for the NetBird account (users, groups, policies, networks,
+# DNS, account settings, ...), applied against the running server's REST API.
+# Define values here (non-secret) or in vault.yml (secret/PII); the play
+# renders them into .ansible_cache/tenant_config/<host>/ and applies them with
+# the community.ansible_netbird collection (plain names -> IDs).
+#
+# PREVIEW by default: `make netbird-plan`; apply with `make netbird-apply`
+# (+ `make netbird-apply-strict` to remove unmanaged resources).
+#
+# Unset variables are treated as empty: in the default non-strict mode those
+# resource types are left untouched; strict mode may remove unmanaged ones.
+#
+# --- Account settings (settings.yml) -----------------------------------------
+# netbird_settings:
+#   dns_domain: "netbird.example.com"
+#
+# --- Groups (access_control/groups.yml) --------------------------------------
+# Do NOT list the auto-managed "All" group.
+# netbird_groups:
+#   - name: "personal"
+#   - name: "guests"
+#
+# --- Policies / ACL (access_control/policies.yml) ----------------------------
+# netbird_policies:
+#   - name: "personal-to-guests"
+#     description: "Let the owner reach guest machines over SSH"
+#     enabled: true
+#     rules:
+#       - name: "ssh"
+#         enabled: true
+#         sources: ["personal"]
+#         destinations: ["guests"]
+#         bidirectional: false
+#         protocol: "tcp"
+#         ports: ["22"]
+#         action: "accept"
+#     state: present
+#
+# --- Posture checks (access_control/posture_checks.yml) ----------------------
+# netbird_posture_checks: []
+#
+# --- Networks (networks.yml) -------------------------------------------------
+# netbird_networks: []
+#
+# --- DNS (dns/nameservers.yml, dns/zones.yml, dns/settings.yml) --------------
+# netbird_dns_nameserver_groups: []
+# netbird_dns_zones: []
+# netbird_dns_disabled_management_groups: []
+#
+# --- Setup keys (setup_keys.yml) ---------------------------------------------
+# The secret value is returned only at creation; store it elsewhere.
+# netbird_setup_keys: []
+#
+# --- Services (services.yml) -------------------------------------------------
+# netbird_services: []
+# netbird_service_domains: []
+#
+# --- Agent Network (agent_network.yml) ---------------------------------------
+# netbird_an_settings: {}
+# netbird_an_providers: []
+# netbird_an_guardrails: []
+# netbird_an_policies: []
+# netbird_an_budget_rules: []
+#
+# --- Users / service users (applied directly, not via a config file) ---------
+# Local-user passwords are generated and returned only once (not persisted);
+# prefer invites, or put this in vault.yml if the emails are sensitive.
+# netbird_users:
+#   - email: "alice@example.com"
+#     name: "Alice"
+#     role: "user"            # owner | admin | user
+#     auto_groups: ["personal"]
+#     state: present
+# netbird_service_users:
+#   - name: "automation"
+#     role: "admin"
+#     auto_groups: []
+#     state: present

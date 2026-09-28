@@ -126,9 +126,12 @@ Caveats for a **remote-access** deployment:
 ## Managing tenants/ACLs with Ansible (config-as-code)
 
 The `community.ansible_netbird` collection manages **tenant resources** against
-the running server's REST API. This repo uses its Config-as-Code workflow:
-versioned YAML in `netbird_config/` is applied declaratively, with plain names
-resolved to IDs and resources applied in dependency order.
+the running server's REST API. This repo keeps the desired state as per-host
+Ansible variables (`inventory/host_vars/<host>/main.yml` for non-secret values,
+`vault.yml` for secrets/PII) using the collection's native variable names; the
+play renders them into a generated, gitignored directory
+(`.ansible_cache/tenant_config/<host>/`) and applies them declaratively, with
+plain names resolved to IDs and resources applied in dependency order.
 
 ```bash
 make netbird-plan          # read-only diff (safe default)
@@ -140,13 +143,14 @@ Requires `vault_admin_service_user_access_token` (provisioned automatically on a
 fresh deploy; otherwise create an `admin` service user + token under
 Team → Service Users). What you can and cannot codify:
 
-| Resource | Codifiable? | Notes |
+| Resource | Codifiable? | Variable |
 |---|---|---|
-| Groups, Policies (ACL), Posture checks | Yes | `access_control/*.yml`, name-based |
-| Networks (routers/resources), DNS (nameservers/zones/settings) | Yes | `networks.yml`, `dns/*.yml` |
-| Account settings (Dashboard settings) | Yes | `settings.yml` |
-| Users / service users | Yes* | objects/roles/groups; embedded-IdP passwords are one-time |
-| Setup keys | Yes* | secret value returned only at creation |
+| Groups, Policies (ACL), Posture checks | Yes | `netbird_groups`, `netbird_policies`, `netbird_posture_checks` |
+| Networks (routers/resources), DNS (nameservers/zones/settings) | Yes | `netbird_networks`, `netbird_dns_*` |
+| Account settings (Dashboard settings) | Yes | `netbird_settings` |
+| Services / Agent Network | Yes | `netbird_services`, `netbird_an_*` |
+| Users / service users | Yes* | `netbird_users`, `netbird_service_users`; embedded-IdP passwords are one-time |
+| Setup keys | Yes* | `netbird_setup_keys`; secret value returned only at creation |
 | Identity providers (external IdP) | Yes* | client secret must be stored in vault |
 | **Peers** | **No** | enrolled devices: only settings are managed; devices re-enroll with setup keys |
 | Audit / events | No | read-only |
@@ -185,7 +189,6 @@ docker_registry_mirrors:
 inventory/           # hosts.yml(.example), group_vars/netbird, host_vars/example
 playbooks/site.yml   # server preflight + netbird_server role
 playbooks/tenant.yml # tenant config-as-code (community.ansible_netbird)
-netbird_config/      # declarative tenant desired state (versioned YAML)
 roles/netbird_server # defaults (image pins), tasks, templates/
 roles/helpers/       # shared vault-secret provisioning
 ```

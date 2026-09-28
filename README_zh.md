@@ -96,8 +96,11 @@ server**。它属于服务端侧的「配置即代码」，本项目已接入（
 
 ## 租户 / ACL 配置即代码（community.ansible_netbird）
 
-`netbird_config/` 下版本化的 YAML 就是期望状态，用 collection 的 Config-as-Code
-工作流声明式应用，支持纯名称→ID 解析、按依赖顺序应用：
+期望状态以「每主机 Ansible 变量」的形式维护：非机密放
+`inventory/host_vars/<host>/main.yml`，机密/PII 放 `vault.yml`，变量名沿用
+collection 原生名；playbook 把它们渲染到一个 gitignore 的生成目录
+（`.ansible_cache/tenant_config/<host>/`）再声明式应用，支持纯名称→ID 解析、
+按依赖顺序应用：
 
 ```bash
 make netbird-plan          # 只读 diff（安全默认）
@@ -109,11 +112,12 @@ make netbird-apply-strict  # 应用 + 删除未纳管资源
 Team → Service Users 建 `admin` service user 及其 access token）。
 可代码化范围：
 
-| 资源 | 可否代码化 | 说明 |
+| 资源 | 可否代码化 | 变量 |
 |---|---|---|
-| 组、Policies(ACL)、Posture checks | 可以 | `access_control/*.yml`，按名称引用 |
-| Networks(路由器/资源)、DNS(nameservers/zones/settings) | 可以 | `networks.yml`、`dns/*.yml` |
-| 账户设置（Dashboard settings） | 可以 | `settings.yml` |
+| 组、Policies(ACL)、Posture checks | 可以 | `netbird_groups`、`netbird_policies`、`netbird_posture_checks` |
+| Networks(路由器/资源)、DNS(nameservers/zones/settings) | 可以 | `netbird_networks`、`netbird_dns_*` |
+| 账户设置（Dashboard settings） | 可以 | `netbird_settings` |
+| Services / Agent Network | 可以 | `netbird_services`、`netbird_an_*` |
 | 用户 / 服务用户 | 可以* | 对象/角色/组可管；内置 IdP 密码是一次性 |
 | Setup keys | 可以* | 密钥值仅创建时返回一次 |
 | 外部 IdP | 可以* | client secret 需存 vault |
@@ -151,7 +155,6 @@ docker_registry_mirrors:
 inventory/           # hosts.yml(.example)、group_vars/netbird、host_vars/example
 playbooks/site.yml   # server preflight + netbird_server role
 playbooks/tenant.yml # 租户 config-as-code（community.ansible_netbird）
-netbird_config/      # 声明式租户期望状态（版本化 YAML）
 roles/netbird_server # defaults（镜像版本）、tasks、templates/
 roles/helpers/       # 共享的 vault 密钥生成
 ```
