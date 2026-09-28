@@ -133,6 +133,7 @@
     project_src: "{{ stack_dir }}"
     state: present
     remove_orphans: true
+  when: not ansible_check_mode
 
 # ------------------------------------------------------------------------------
 # Readiness: wait for the embedded IdP discovery endpoint to answer over the
