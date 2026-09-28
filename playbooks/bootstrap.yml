@@ -244,6 +244,41 @@
         - not (bootstrap_use_key | bool)
 
     # --------------------------------------------------------------------------
+    # Admin identity (optional): when the user defines admin credentials and/or
+    # a public key, create/repair the account and set its password here. Root
+    # always exists and is never created; the service account is handled above.
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the admin identity settings"
+      ansible.builtin.set_fact:
+        bootstrap_admin: "{{ host_ssh_identities.admin }}"
+        bootstrap_admin_defined: >-
+          {{ (host_ssh_identities.admin.password | default('') | length > 0)
+             or (host_ssh_identities.admin.pubkey | default('') | length > 0) }}
+
+    - name: "[Bootstrap] Create/repair the admin account"
+      ansible.builtin.user:
+        name: "{{ bootstrap_admin.user }}"
+        groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+        state: present
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Set the admin account password"
+      ansible.builtin.user:
+        name: "{{ bootstrap_admin.user }}"
+        password: "{{ bootstrap_admin.password | password_hash('sha512', 'netbirdiacsalt') }}"
+        update_password: always
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.password | default('') | length > 0
+
+    # --------------------------------------------------------------------------
     # SSH public keys (per identity, opt-in): authorize every explicitly supplied
     # vault_<id>_ssh_pubkey_file for its account. Empty/unset -> ignored (never
     # generated). Independent of the service-account key/password mode above.
@@ -285,12 +320,14 @@
           - bootstrap_pubkey_users.results | default([])
             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
         fail_msg: >-
-          vault_<id>_ssh_pubkey_file is set for account(s) that do not exist on
-          {{ inventory_hostname }}:
+          vault_<id>_ssh_pubkey_file is set for account(s) that are not managed
+          by this bootstrap and do not exist on {{ inventory_hostname }}:
           {{ bootstrap_pubkey_users.results | default([])
              | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')
              | map(attribute='item.user') | join(', ') }}.
-          Create the account(s) or clear the pubkey path(s).
+          Only the root, service (ansible) and explicitly configured admin
+          accounts are provisioned; clear the pubkey path(s) or create the
+          account(s) first.
       when: bootstrap_pubkey_specs | length > 0
 
     - name: "[Bootstrap] Ensure each account's .ssh directory exists"
@@ -316,20 +353,32 @@
       loop_control:
         label: "{{ item.item.id }}"
 
+    - name: "[Bootstrap] Resolve the passwordless-sudo accounts"
+      ansible.builtin.set_fact:
+        bootstrap_sudo_users: >-
+          {{ ([bootstrap_service_user]
+              + ([bootstrap_admin.user]
+                 if (bootstrap_admin_defined | default(false) | bool
+                     and bootstrap_admin.user | default('') != 'root')
+                 else []))
+             | unique }}
+
     - name: "[Bootstrap] Grant passwordless sudo"
       ansible.builtin.copy:
-        content: "{{ bootstrap_service_user }} ALL=(ALL) NOPASSWD:ALL\n"
-        dest: "/etc/sudoers.d/90-netbird-{{ bootstrap_service_user }}"
+        content: "{{ item }} ALL=(ALL) NOPASSWD:ALL\n"
+        dest: "/etc/sudoers.d/90-netbird-{{ item }}"
         owner: root
         group: root
         mode: "0440"
         validate: "visudo -cf %s"
+      loop: "{{ bootstrap_sudo_users }}"
       when: host_bootstrap_sudo_nopasswd | default(true) | bool
 
     - name: "[Bootstrap] Report the outcome"
       ansible.builtin.debug:
         msg: >-
           Probed as '{{ probe_identity }}'. Service account
-          '{{ bootstrap_service_user }}' should exist; subsequent runs
-          connect as it via vault_{ansible,admin,root}_* in
+          '{{ bootstrap_service_user }}'{{ " and admin account '" ~ bootstrap_admin.user ~ "'"
+          if bootstrap_admin_defined | bool else "" }} should exist; subsequent
+          runs connect via vault_{ansible,admin,root}_* in
           inventory/host_vars/{{ inventory_hostname }}/vault.yml.
