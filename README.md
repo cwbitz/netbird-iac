@@ -150,7 +150,7 @@ Team → Service Users). What you can and cannot codify:
 | Account settings (Dashboard settings) | Yes | `netbird_settings` |
 | Services / Agent Network | Yes | `netbird_services`, `netbird_an_*` |
 | Users / service users | Yes* | `netbird_users`, `netbird_service_users`; embedded-IdP passwords are one-time |
-| Setup keys | Yes* | `netbird_setup_keys`; secret value returned only at creation |
+| Setup keys | Yes* | `netbird_setup_keys`; expiry 1..31536000s (1 year max, never-expire not expressible); newly created secrets are persisted to `vault_managed.yml` as `vault_setup_key_<name>` |
 | Identity providers (external IdP) | Yes* | client secret must be stored in vault |
 | **Peers** | **No** | enrolled devices: only settings are managed; devices re-enroll with setup keys |
 | Audit / events | No | read-only |

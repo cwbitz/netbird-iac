@@ -119,7 +119,7 @@ Team → Service Users 建 `admin` service user 及其 access token）。
 | 账户设置（Dashboard settings） | 可以 | `netbird_settings` |
 | Services / Agent Network | 可以 | `netbird_services`、`netbird_an_*` |
 | 用户 / 服务用户 | 可以* | 对象/角色/组可管；内置 IdP 密码是一次性 |
-| Setup keys | 可以* | 密钥值仅创建时返回一次 |
+| Setup keys | 可以* | `netbird_setup_keys`；有效期 1..31536000 秒（最长 1 年，无法声明永不过期）；新建密钥的明文会写入 `vault_managed.yml` 的 `vault_setup_key_<name>` |
 | 外部 IdP | 可以* | client secret 需存 vault |
 | **Peer（设备）** | **不可以** | 是入网设备，只能管其设置；设备用 setup key 重新入网 |
 | 审计/事件 | 不可以 | 只读 |
