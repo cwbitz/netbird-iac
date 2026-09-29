@@ -97,6 +97,58 @@
           inventory/host_vars/{{ inventory_hostname }}/vault.yml and re-run.
 
     # --------------------------------------------------------------------------
+    # A routed network references its router/gateway PEER by name, but that peer
+    # is enrolled by the client project using a setup key this play creates — so
+    # on the first run the gateway does not exist yet. Fetch the live peers and
+    # keep only networks whose routers are all enrolled; a network without its
+    # gateway is skipped (with a warning) and converges automatically on a later
+    # run once the client has joined. No manual toggling needed.
+    # --------------------------------------------------------------------------
+    - name: "[Tenant] Fetch peers for routed-network readiness"
+      community.ansible_netbird.netbird_info:
+        api_url: "{{ netbird_api_url }}"
+        api_token: "{{ netbird_api_token }}"
+        validate_certs: "{{ netbird_validate_certs }}"
+        resource: peers
+      register: tenant_peers_info
+      changed_when: false
+      no_log: true
+      when: (netbird_networks | default([]) | length) > 0
+
+    - name: "[Tenant] Separate routed networks by gateway-peer readiness"
+      ansible.builtin.set_fact:
+        tenant_network_split: >-
+          {%- set known = (tenant_peers_info.data | default([]) | map(attribute='name') | list)
+                         + (tenant_peers_info.data | default([]) | map(attribute='hostname') | list) -%}
+          {%- set ns = namespace(ready=[], pending=[]) -%}
+          {%- for net in (netbird_networks | default([])) -%}
+          {%-   set missing = namespace(count=0) -%}
+          {%-   for r in (net.routers | default([])) -%}
+          {%-     if r.peer not in known -%}{%- set missing.count = missing.count + 1 -%}{%- endif -%}
+          {%-   endfor -%}
+          {%-   if missing.count == 0 -%}
+          {%-     set _ = ns.ready.append(net) -%}
+          {%-   else -%}
+          {%-     set _ = ns.pending.append(net.name) -%}
+          {%-   endif -%}
+          {%- endfor -%}
+          {{ {'ready': ns.ready, 'pending': ns.pending} }}
+      when: (netbird_networks | default([]) | length) > 0
+
+    - name: "[Tenant] Keep only routed networks whose gateway peers are enrolled"
+      ansible.builtin.set_fact:
+        netbird_networks: "{{ tenant_network_split.ready | default([]) }}"
+      when: tenant_network_split is defined
+
+    - name: "[Tenant] Warn about routed networks waiting for gateway enrollment"
+      ansible.builtin.debug:
+        msg: >-
+          Skipped routed network(s) {{ tenant_network_split.pending }}: their
+          router peer(s) are not enrolled yet. Enroll the client (which consumes
+          the setup key this play persists), then re-run to activate them.
+      when: (tenant_network_split.pending | default([])) | length > 0
+
+    # --------------------------------------------------------------------------
     # Generate the config directory the collection role consumes from the
     # per-host variables (the role reads raw YAML and does not template).
     # --------------------------------------------------------------------------
