@@ -244,18 +244,45 @@
     # --------------------------------------------------------------------------
     # Users and service users are not covered by the collection's Config-as-Code
     # model (it ships a separate netbird_user module), so they are applied here
-    # from netbird_users / netbird_service_users. Runs only on commit (never
-    # during preview) and after groups exist.
+    # from netbird_users / netbird_service_users. The module takes group IDs for
+    # auto_groups, so plain names are resolved against the live groups first.
+    # Runs only on commit (never during preview) and after groups exist.
     # --------------------------------------------------------------------------
-    - name: "[Tenant] Build the flat user list (mark service users)"
+    - name: "[Tenant] Fetch groups for user auto_groups resolution"
+      community.ansible_netbird.netbird_info:
+        api_url: "{{ netbird_api_url }}"
+        api_token: "{{ netbird_api_token }}"
+        validate_certs: "{{ netbird_validate_certs }}"
+        resource: groups
+      register: tenant_groups_info
+      changed_when: false
+      no_log: true
+      when:
+        - tenant_commit | bool
+        - ((netbird_users | default([]) | length)
+           + (netbird_service_users | default([]) | length)) > 0
+
+    - name: "[Tenant] Map group names to IDs"
+      ansible.builtin.set_fact:
+        tenant_group_ids: >-
+          {{ dict((tenant_groups_info.data | default([]) | map(attribute='name') | list)
+                  | zip(tenant_groups_info.data | default([]) | map(attribute='id') | list)) }}
+      no_log: true
+      when:
+        - tenant_commit | bool
+        - tenant_groups_info is defined and tenant_groups_info.data is defined
+
+    - name: "[Tenant] Build the flat user list (mark service users, resolve auto_groups)"
       ansible.builtin.set_fact:
         tenant_users_flat: >-
           {%- set ns = namespace(items=[]) -%}
           {%- for u in (netbird_users | default([])) -%}
-          {%-   set _ = ns.items.append(u | combine({'is_service_user': u.is_service_user | default(false)})) -%}
+          {%-   set groups = (u.auto_groups | default([])) | map('extract', tenant_group_ids) | list -%}
+          {%-   set _ = ns.items.append(u | combine({'is_service_user': u.is_service_user | default(false), 'auto_groups': groups})) -%}
           {%- endfor -%}
           {%- for u in (netbird_service_users | default([])) -%}
-          {%-   set _ = ns.items.append(u | combine({'is_service_user': u.is_service_user | default(true)})) -%}
+          {%-   set groups = (u.auto_groups | default([])) | map('extract', tenant_group_ids) | list -%}
+          {%-   set _ = ns.items.append(u | combine({'is_service_user': u.is_service_user | default(true), 'auto_groups': groups})) -%}
           {%- endfor -%}
           {{ ns.items }}
       when: tenant_commit | bool
