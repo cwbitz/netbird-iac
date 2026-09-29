@@ -122,8 +122,39 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # resource types are left untouched; strict mode may remove unmanaged ones.
 #
 # --- Account settings (settings.yml) -----------------------------------------
+# Account-wide settings (API /api/accounts). Every option is shown with its
+# default; uncomment and adjust as needed. Group-list options accept plain group
+# names (resolved to IDs by the collection). Enterprise-gated options are marked.
 # netbird_settings:
-#   dns_domain: "netbird.example.com"
+#   # Authentication
+#   peer_login_expiration_enabled: true        # require periodic SSO re-auth (setup-key peers exempt)
+#   peer_login_expiration: 604800              # 7 days (seconds)
+#   peer_inactivity_expiration_enabled: false
+#   peer_inactivity_expiration: 2592000        # 30 days (only used when enabled)
+#   extra_user_approval_required: false        # approve users auto-joining by email domain
+#   # extra_peer_approval_enabled: false       # ENTERPRISE
+#   # Permissions
+#   regular_users_view_blocked: false
+#   # User groups
+#   groups_propagation_enabled: true
+#   jwt_groups_enabled: false
+#   jwt_groups_claim_name: "groups"
+#   jwt_allow_groups: []
+#   # Networks
+#   dns_domain: "netbird.selfhosted"           # keep a non-public domain
+#   network_range: "100.64.0.0/10"             # changing re-allocates all peer IPs
+#   network_range_v6: "fd00::/64"
+#   ipv6_enabled_groups: []                    # empty = disable IPv6 overlay
+#   routing_peer_dns_resolution_enabled: true
+#   # extra_network_traffic_logs_enabled: false
+#   # extra_network_traffic_logs_groups: []
+#   # extra_network_traffic_packet_counter_enabled: false  # ENTERPRISE
+#   # Clients
+#   lazy_connection_enabled: false
+#   auto_update_version: "disabled"            # disabled | latest | a version
+#   auto_update_always: false
+#   peer_expose_enabled: false
+#   peer_expose_groups: []
 #
 # --- Groups (access_control/groups.yml) --------------------------------------
 # Do NOT list the auto-managed "All" group.
