@@ -47,7 +47,7 @@ vault_admin_ssh_pubkey_file: ""
 # generated password.
 vault_ansible_user: "ansible"
 vault_ansible_password: ""
-vault_ansible_ssh_privkey_file: "~/.ssh/netbird_ansible_ed25519"
+vault_ansible_ssh_privkey_file: "~/.ssh/id_ed25519_ansible"
 vault_ansible_ssh_pubkey_file: ""
 
 # --- Public endpoint ---------------------------------------------------------
