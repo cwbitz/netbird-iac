@@ -2,8 +2,8 @@
 # NetBird self-hosted IaC - Makefile wrapper
 # ==============================================================================
 # Thin, well-known entry points around ansible-playbook / ansible-lint. Run
-# `make help` for the target list. TAGS=... narrows a run to a tag, HOST=...
-# targets a single host.
+# `make help` for the grouped target list. TAGS=... narrows a run to a tag,
+# HOST=... targets a single host.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
@@ -18,16 +18,29 @@ VAULT_PW_DIR  := $(HOME)/.config/projects/netbird-iac
 VAULT_PW_FILE := $(VAULT_PW_DIR)/ansible_vault_password
 ANSIBLE_PB    := ansible-playbook -i $(INVENTORY) $(PLAYBOOK)
 
+##@ General
+
 .PHONY: help
-help: ## Show available targets
-	@echo "NetBird self-hosted IaC"
-	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+help: ## Show grouped targets and overridable variables
+	@printf '\nUsage: make <target> [VAR=value ...]\n'
+	@awk 'BEGIN {FS = ":.*?## "} \
+		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5); next } \
+		/^[a-zA-Z0-9_-]+:.*?## / { printf "  \033[36m%-23s\033[0m %s\n", $$1, $$2 }' \
+		$(MAKEFILE_LIST)
+	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
+	@printf '  \033[36m%-23s\033[0m %s\n' \
+		'HOST'      'target host for host-init/ans-vars, e.g. HOST=nb-test' \
+		'TAGS'      'focused tags for ans-check/ans-site/ans-tags, e.g. TAGS=netbird' \
+		'FROM'      'backup stamp for netbird-restore, e.g. FROM=backup/<host>/<stamp>' \
+		'PLAYBOOK'  'playbook for ans-check/ans-site (default: playbooks/site.yml)' \
+		'INVENTORY' 'inventory file (default: inventory/hosts.yml)'
+	@printf '\n'
 
 .PHONY: history
 history: ## Show the last 10 commits
 	@git log --oneline -10
+
+##@ Dependencies
 
 .PHONY: ans-deps-tools
 ans-deps-tools: ## Install the pinned toolchain via mise/asdf (.tool-versions)
@@ -42,6 +55,8 @@ ans-deps: ans-deps-tools gal-deps ## Install the pinned toolchain + Galaxy colle
 gal-deps: ## Install Galaxy collections from requirements.yml
 	ansible-galaxy install -r requirements.yml
 
+##@ Vault
+
 .PHONY: ans-vault-init
 ans-vault-init: ## Create the Ansible Vault password file (if missing)
 	@mkdir -p "$(VAULT_PW_DIR)"
@@ -49,6 +64,8 @@ ans-vault-init: ## Create the Ansible Vault password file (if missing)
 		umask 077; openssl rand -base64 32 > "$(VAULT_PW_FILE)"; \
 		echo "Created vault password: $(VAULT_PW_FILE)"; \
 	else echo "Vault password already present: $(VAULT_PW_FILE)"; fi
+
+##@ Hosts
 
 .PHONY: host-init
 host-init: ## Scaffold host_vars/<HOST> from the example/ template
@@ -58,6 +75,12 @@ host-init: ## Scaffold host_vars/<HOST> from the example/ template
 	cp -n inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
 	cp -n inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
 	@echo "Scaffolded inventory/host_vars/$(HOST)/ (edit main.yml + vault.yml, then: ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml)"
+
+.PHONY: host-bootstrap
+host-bootstrap: ans-vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
+	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
+
+##@ Ansible
 
 .PHONY: ans-lint
 ans-lint: ans-vault-init ## Playbook syntax check + ansible-lint
@@ -81,9 +104,7 @@ ans-tags: ans-vault-init ## Deploy only tasks tagged TAGS=x
 	@if [ -z "$(TAGS)" ]; then echo "Usage: make ans-tags TAGS=<tag>[,<tag>]" >&2; exit 1; fi
 	$(ANSIBLE_PB) --tags $(TAGS)
 
-.PHONY: host-bootstrap
-host-bootstrap: ans-vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
-	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
+##@ Tenant (config-as-code)
 
 .PHONY: netbird-plan
 netbird-plan: ans-vault-init ## Tenant config-as-code: read-only diff (safe)
@@ -97,6 +118,8 @@ netbird-apply: ans-vault-init ## Tenant config-as-code: apply desired state
 netbird-apply-strict: ans-vault-init ## Apply + remove unmanaged resources
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true -e tenant_strict=true
 
+##@ Backup
+
 .PHONY: netbird-backup
 netbird-backup: ans-vault-init ## Back up netbird_data + the encryption key
 	ansible-playbook -i $(INVENTORY) playbooks/backup.yml
@@ -106,6 +129,8 @@ netbird-restore: ans-vault-init ## Restore FROM=backup/<host>/<stamp>
 	@if [ -z "$(FROM)" ]; then echo "Usage: make netbird-restore FROM=backup/<host>/<timestamp>" >&2; exit 1; fi
 	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e restore_from=$(abspath $(FROM))
 
+##@ Operations
+
 .PHONY: ans-vars
 ans-vars: ans-vault-init ## Print resolved host vars (incl. decrypted vault); HOST=x
 	@if [ -z "$(HOST)" ]; then echo "Usage: make ans-vars HOST=<hostname>" >&2; exit 1; fi
@@ -114,6 +139,8 @@ ans-vars: ans-vault-init ## Print resolved host vars (incl. decrypted vault); HO
 .PHONY: ans-ping
 ans-ping: ans-vault-init ## Test SSH connectivity
 	ansible -i $(INVENTORY) netbird -m ansible.builtin.ping
+
+##@ Housekeeping
 
 .PHONY: clean
 clean: ## Remove the local fact cache
