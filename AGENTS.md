@@ -19,9 +19,10 @@ or templates. Entry playbooks: `playbooks/site.yml` (server deploy) and
 `playbooks/tenant.yml` (tenant config-as-code).
 
 **Supported platform**: Debian-family Linux with Docker Engine + Compose v2. When
-Docker is missing the preflight installs Docker CE from Docker's official apt
-repository (disable with `install_docker: false`, which then fails with install
-guidance). Non-Debian support is best-effort; automatic install is Debian-only.
+Docker is missing the preflight installs Docker CE via Docker's official install
+script (`https://get.docker.com`; disable with `install_docker: false`, which then
+fails with install guidance). Non-Debian support is best-effort; automatic install
+is Debian-only.
 
 ## Secrets and local-only files
 

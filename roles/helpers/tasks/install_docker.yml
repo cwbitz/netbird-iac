@@ -4,8 +4,8 @@
 # (roles/helpers/tasks/install_docker.yml)
 #
 # No-op when `docker compose version` already succeeds; otherwise installs Docker
-# CE from Docker's official apt repository (Debian-family). Safe to include from
-# several components.
+# CE via Docker's official install script (https://get.docker.com, Debian-family).
+# Safe to include from several components.
 #
 # Parameter (via include vars):
 #   install_docker  bool, default true. When false, missing Docker is fatal.
@@ -32,7 +32,7 @@
     - not (install_docker | default(true) | bool)
     - not ansible_check_mode
 
-- name: "[Docker] Install Docker CE from the official apt repository"
+- name: "[Docker] Install Docker CE from the official install script"
   when:
     - install_docker_probe.rc != 0
     - install_docker | default(true) | bool
@@ -47,56 +47,31 @@
           hosts. Install Docker on {{ inventory_hostname }} manually and
           re-run, or set install_docker=false to require it preinstalled.
 
-    - name: "[Docker] Install the repository prerequisites"
+    - name: "[Docker] Ensure curl and CA certificates are present"
       ansible.builtin.apt:
         name:
           - ca-certificates
           - curl
-          - gnupg
         state: present
         update_cache: true
 
-    - name: "[Docker] Determine the package architecture"
-      ansible.builtin.command: dpkg --print-architecture
-      register: install_docker_arch
-      changed_when: false
-
-    - name: "[Docker] Ensure the apt keyring directory exists"
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: "[Docker] Download the Docker signing key"
+    - name: "[Docker] Download the official Docker install script"
       ansible.builtin.get_url:
-        url: https://download.docker.com/linux/debian/gpg
-        dest: /etc/apt/keyrings/docker.asc
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh
         owner: root
         group: root
-        mode: "0644"
-
-    - name: "[Docker] Add the Docker apt repository"
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb [arch={{ install_docker_arch.stdout }}
-          signed-by=/etc/apt/keyrings/docker.asc]
-          https://download.docker.com/linux/debian
-          {{ ansible_distribution_release }} stable
-        filename: docker
-        state: present
-        update_cache: true
+        mode: "0700"
 
     - name: "[Docker] Install Docker Engine, CLI, containerd and Compose v2"
-      ansible.builtin.apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
-        state: present
+      ansible.builtin.command:
+        cmd: sh /tmp/get-docker.sh
+        creates: /usr/bin/docker
+
+    - name: "[Docker] Remove the downloaded install script"
+      ansible.builtin.file:
+        path: /tmp/get-docker.sh
+        state: absent
 
     - name: "[Docker] Enable and start the Docker service"
       ansible.builtin.systemd_service:

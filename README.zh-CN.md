@@ -17,8 +17,9 @@
 
 - 一台 Linux VM（≥ 1 CPU / 2 GB），公网可达 **TCP 80/443** 与 **UDP 3478**。
 - 一个 **公网域名**，A 记录指向该 VM。
-- Docker Engine + Compose v2 插件；缺失时自动从 Docker 官方源安装（Debian 系）；
-  设 `install_docker: false` 可改为要求预装。
+- Docker Engine + Compose v2 插件；缺失时通过 Docker 官方安装脚本
+  （`https://get.docker.com`）自动安装（Debian 系）；设 `install_docker: false`
+  可改为要求预装。
 - 控制端：`mise` 或 `asdf`、`openssl`，以及对主机的 SSH 访问。
 
 ## 快速开始

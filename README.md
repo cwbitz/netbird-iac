@@ -30,9 +30,9 @@ issues Let's Encrypt certificates automatically.
 - A Linux VM with at least 1 CPU / 2 GB RAM, publicly reachable on **TCP 80 and
   443** and **UDP 3478**.
 - A **public domain** whose A record points at the VM.
-- Docker Engine + the Compose v2 plugin. Installed automatically from Docker's
-  official repository when missing (Debian-family); set `install_docker: false`
-  to require a preinstalled Docker instead.
+- Docker Engine + the Compose v2 plugin. Installed automatically via Docker's
+  official install script (`https://get.docker.com`) when missing (Debian-family);
+  set `install_docker: false` to require a preinstalled Docker instead.
 - On the control node: `mise` or `asdf`, `openssl`, and SSH access to the host.
 
 ## Quickstart
