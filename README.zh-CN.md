@@ -53,7 +53,7 @@ CE），同时应用下方镜像源。对每个设置了 `vault_<id>_ssh_pubkey_
 私钥路径由 `vault_<id>_ssh_privkey_file` 指定（仅接受路径，不接受内联字符串）。
 
 填了 `owner_email` 时会通过 `/api/setup` 自动创建首个 owner；`owner_password` 留空则
-由角色生成并写入加密的 `vault_managed.yml`。同一次部署还会创建 `admin` service user
+由角色生成并写入加密的 `vault.yml`。同一次部署还会创建 `admin` service user
 并签发其 PAT，存入 `vault_admin_service_user_access_token`（供 tenant 阶段使用），
 然后删除一次性的 owner token。不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建
 （该页仅在实例无任何账号时可用）。
@@ -130,7 +130,7 @@ make restore FROM=backup/<host>/<stamp>  # 成对恢复
 
 备份会停容器做一致的 SQLite 快照，把 `netbird_data` 卷打包到
 `backup/<host>/<stamp>/`。加密密钥**不**在归档里：它在控制端的
-`inventory/host_vars/<host>/vault_managed.yml`，需另行备份。恢复时 `config.yaml` 由
+`inventory/host_vars/<host>/vault.yml`，需另行备份。恢复时 `config.yaml` 由
 该文件重新渲染，因此它必须与归档数据来自同一时刻的同一密钥，否则数据无法解密。
 `backup/` 已 gitignore；请另存异地副本。
 
@@ -159,10 +159,12 @@ docs/RUNBOOK.md      # 运维手册（部署、备份恢复、回滚）
 
 ## 密钥
 
-切勿提交 vault。用户密钥放在加密的
-`inventory/host_vars/<host>/vault.yml`；role 首次部署时把加密材料生成进加密的
-`vault_managed.yml`（后续运行保留原值）。**务必备份 `vault_managed.yml`**：丢失
-`vault_datastore_encryption_key` 会导致加密的用户数据不可恢复。
+切勿提交 vault。密钥按“数据流向”拆分：
+`inventory/host_vars/<host>/vault.yml` 是**控制端权威**——用户提供以及控制端生成的、
+传给主机的输入（datastore/session/relay 密钥、owner/ansible 密码）；
+`vault_managed.yml` 是**主机权威**——主机回传的密钥（`admin` PAT、setup key 明文）。
+每个 key 只属于一个文件；`make vault-migrate` 可把历史遗留的 managed 键迁回。
+**务必备份 `vault.yml`**：丢失 `vault_datastore_encryption_key` 会导致加密的用户数据不可恢复。
 
 ## 许可证
 

@@ -28,7 +28,7 @@
     tenant_build_dir: "{{ playbook_dir }}/../.ansible_cache/tenant_config/{{ inventory_hostname }}"
     config_dir: "{{ tenant_build_dir }}"
     netbird_api_url: "https://{{ domain_name }}"
-    netbird_api_token: "{{ vault_admin_service_user_access_token | default('') }}"
+    netbird_api_token: "{{ vault_admin_service_user_access_token | default('', true) }}"
     netbird_validate_certs: true
     tenant_commit: false
     tenant_strict: false
@@ -213,7 +213,7 @@
       when:
         - tenant_commit | bool
         - item.changed | default(false)
-        - (item.setup_key.key | default('')) | length > 0
+        - (item.setup_key.key | default('', true)) | length > 0
 
     # --------------------------------------------------------------------------
     # Users/service users use the separate netbird_user module, so they are

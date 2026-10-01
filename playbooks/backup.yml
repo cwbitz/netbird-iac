@@ -9,8 +9,8 @@
 # consistent.
 #
 # The generated encryption keys are NOT in this archive — they live on the
-# control node in inventory/host_vars/<host>/vault_managed.yml, which must be
-# kept separately. Losing vault_datastore_encryption_key makes the archived data
+# control node in inventory/host_vars/<host>/vault.yml, which must be kept
+# separately. Losing vault_datastore_encryption_key makes the archived data
 # unrecoverable. The backup contains sensitive data (user PII, hashed
 # credentials) and is gitignored — never commit it.
 # ==============================================================================
@@ -72,5 +72,5 @@
         msg: >-
           Backup written to {{ backup_path }}/netbird_data.tgz. The encryption
           key is NOT in this archive: it stays in the control node's
-          inventory/host_vars/{{ inventory_hostname }}/vault_managed.yml, which
+          inventory/host_vars/{{ inventory_hostname }}/vault.yml, which
           must be kept to restore. Keep a copy off-host.

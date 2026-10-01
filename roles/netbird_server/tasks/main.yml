@@ -63,7 +63,8 @@
     tasks_from: vault_secrets_dispatch
   vars:
     vault_secrets_component: "netbird_server"
-    vault_secrets_vault_file: "vault_managed.yml"
+    vault_secrets_vault_file: "vault.yml"
+    vault_secrets_prune_from: "vault_managed.yml"
     vault_secrets_list:
       - var: "vault_relay_auth_secret"
         type: "base64"
@@ -163,12 +164,13 @@
     tasks_from: vault_secrets_dispatch
   vars:
     vault_secrets_component: "netbird_owner"
-    vault_secrets_vault_file: "vault_managed.yml"
+    vault_secrets_vault_file: "vault.yml"
+    vault_secrets_prune_from: "vault_managed.yml"
     vault_secrets_list:
       - var: "vault_owner_password"
         type: "base64"
         length: 24
-  when: owner_email | default('') | length > 0
+  when: owner_email | default('', true) | length > 0
 
 - name: "[NetBird] Notice: the first owner must be onboarded manually"
   tags: [netbird, netbird_owner]
@@ -181,7 +183,7 @@
       Access Token under Team -> Service Users and set
       vault_admin_service_user_access_token in vault.yml.
   when:
-    - owner_email | default('') | length == 0
+    - owner_email | default('', true) | length == 0
 
 - name: "[NetBird] Warn that a supplied owner password has no effect without an owner email"
   tags: [netbird, netbird_owner]
@@ -192,8 +194,8 @@
       Set owner_email, or onboard manually at
       https://{{ domain_name }}/setup.
   when:
-    - owner_email | default('') | length == 0
-    - owner_password | default('') | length > 0
+    - owner_email | default('', true) | length == 0
+    - owner_password | default('', true) | length > 0
 
 - name: "[NetBird] Check whether instance setup is still required"
   tags: [netbird, netbird_owner]
@@ -206,7 +208,7 @@
   changed_when: false
   when:
     - not ansible_check_mode
-    - owner_email | default('') | length > 0
+    - owner_email | default('', true) | length > 0
 
 - name: "[NetBird] Create the first owner user via the setup API"
   tags: [netbird, netbird_owner]
@@ -228,8 +230,8 @@
   changed_when: true
   when:
     - not ansible_check_mode
-    - owner_email | default('') | length > 0
-    - owner_password | default('') | length > 0
+    - owner_email | default('', true) | length > 0
+    - owner_password | default('', true) | length > 0
     - instance is defined
     - instance.json is defined
     - instance.json.setup_required | default(false) | bool
@@ -237,7 +239,7 @@
 - name: "[NetBird] Record the one-time owner access token"
   tags: [netbird, netbird_owner]
   ansible.builtin.set_fact:
-    owner_access_token: "{{ setup_result.json.personal_access_token | default('') }}"
+    owner_access_token: "{{ setup_result.json.personal_access_token | default('', true) }}"
   no_log: true
   when:
     - setup_result is defined
@@ -246,7 +248,7 @@
 
 - name: "[NetBird] Bootstrap the tenant service-user access token"
   tags: [netbird, netbird_owner]
-  when: owner_access_token | default('') | length > 0
+  when: owner_access_token | default('', true) | length > 0
   block:
     - name: "[NetBird] Look up existing service users"
       ansible.builtin.uri:
@@ -266,7 +268,7 @@
         admin_service_user_id: >-
           {{ (service_users.json | default([]))
              | selectattr('name', 'equalto', 'admin')
-             | map(attribute='id') | list | first | default('') }}
+             | map(attribute='id') | list | first | default('', true) }}
       no_log: true
 
     - name: "[NetBird] Create the 'admin' service user"

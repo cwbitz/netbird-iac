@@ -31,8 +31,8 @@ make deploy      # 部署（可加 TAGS=... 做定向执行）
 定向 tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、
 `netbird_owner`（`make deploy TAGS=<tag>`）。
 
-部署会校验输入与非 root 账号、把缺失的密钥生成进 `vault_managed.yml`、把
-`config.yaml` / `dashboard.env` / `docker-compose.yml` 渲染到 `{{ stack_dir }}`
+部署会校验输入与非 root 账号、把缺失的密钥生成进 `vault.yml`（主机回传的密钥写入
+`vault_managed.yml`）、把 `config.yaml` / `dashboard.env` / `docker-compose.yml` 渲染到 `{{ stack_dir }}`
 （默认 `/opt/netbird`）、启动容器栈、等待 TLS 就绪，然后可选地创建首个 owner。
 
 验证：
@@ -95,10 +95,10 @@ make restore FROM=backup/<host>/<stamp>
 - `backup` 会停容器、打包 `netbird_data` 数据卷（`netbird_data.tgz`）、再启动
   容器。归档含用户 PII 与哈希后的凭据。
 - 加密密钥**不**在归档里。它在控制端的
-  `inventory/host_vars/<host>/vault_managed.yml`——请**另行备份并妥善保护**。丢失
+  `inventory/host_vars/<host>/vault.yml`——请**另行备份并妥善保护**。丢失
   `vault_datastore_encryption_key` 会导致归档数据不可恢复。
 - `restore` 会替换数据卷再重新部署。`config.yaml` 由控制端当前的
-  `vault_managed.yml` 重新渲染，因此该文件必须与归档数据来自同一时刻的同一密钥。
+  `vault.yml` 重新渲染，因此该文件必须与归档数据来自同一时刻的同一密钥。
 
 恢复后验证：OIDC discovery 地址可访问且用户能登录。
 
@@ -107,7 +107,7 @@ make restore FROM=backup/<host>/<stamp>
 - **升级**：让 Renovate 更新固定 tag（或手动改
   `roles/netbird_server/defaults/main.yml`），再 `make deploy`。
 - **版本回滚**：把 tag 改回上一版本，重跑 `make deploy`。
-- **整体回滚**：从匹配的备份恢复（数据**和**同一份 `vault_managed.yml`）。
+- **整体回滚**：从匹配的备份恢复（数据**和**同一份 `vault.yml`）。
 - **配置回滚**：`git revert` 或改回 per-host 变量，再 `make deploy`。
 
 ## 7. 故障排查
@@ -134,4 +134,4 @@ ssh <host> 'cd /opt/netbird && docker compose ps'
 
 - 切勿提交 `vault.yml`、`vault_managed.yml`、`backup/`（均已 gitignore）。
 - 解密任何 vault 都需要 vault 密码文件。
-- 请把 `vault_managed.yml` 另存一份到异地，与数据备份分开存放。
+- 请把 `vault.yml`（datastore 密钥）与 `vault_managed.yml` 各另存一份到异地，与数据备份分开存放。

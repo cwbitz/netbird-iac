@@ -124,7 +124,7 @@
         fail_msg: >-
           host_apt_mirror is set, but the host is not Debian-family.
           Example: host_apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
-      when: host_apt_mirror | default('') | length > 0
+      when: host_apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Back up the current APT sources (once)"
       ansible.builtin.copy:
@@ -133,7 +133,7 @@
         remote_src: true
         force: false
         mode: "0644"
-      when: host_apt_mirror | default('') | length > 0
+      when: host_apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Render the APT sources from the mirror"
       ansible.builtin.template:
@@ -143,13 +143,13 @@
         group: root
         mode: "0644"
       register: apt_sources
-      when: host_apt_mirror | default('') | length > 0
+      when: host_apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Refresh the APT cache"
       ansible.builtin.apt:
         update_cache: true
       when:
-        - host_apt_mirror | default('') | length > 0
+        - host_apt_mirror | default('', true) | length > 0
         - apt_sources.changed | default(false)
 
     # --------------------------------------------------------------------------
@@ -204,7 +204,7 @@
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "{{ host_bootstrap_user | default('ansible') }}"
-        bootstrap_use_key: "{{ vault_ansible_ssh_pubkey_file | default('') | length > 0 }}"
+        bootstrap_use_key: "{{ vault_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
 
     - name: "[Bootstrap] Provision a service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -212,7 +212,8 @@
         tasks_from: vault_secrets_dispatch
       vars:
         vault_secrets_component: "netbird_bootstrap"
-        vault_secrets_vault_file: "vault_managed.yml"
+        vault_secrets_vault_file: "vault.yml"
+        vault_secrets_prune_from: "vault_managed.yml"
         vault_secrets_list:
           - var: "vault_ansible_password"
             type: "base64"
@@ -223,8 +224,8 @@
       ansible.builtin.set_fact:
         host_bootstrap_password_final: >-
           {{ host_bootstrap_password
-             if (host_bootstrap_password | default('') | length > 0)
-             else (vault_ansible_password | default('')) }}
+             if (host_bootstrap_password | default('', true) | length > 0)
+             else (vault_ansible_password | default('', true)) }}
       when: not (bootstrap_use_key | bool)
 
     - name: "[Bootstrap] Create/repair the service account"
@@ -255,8 +256,8 @@
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ host_ssh_identities.admin }}"
         bootstrap_admin_defined: >-
-          {{ (host_ssh_identities.admin.password | default('') | length > 0)
-             or (host_ssh_identities.admin.pubkey | default('') | length > 0) }}
+          {{ (host_ssh_identities.admin.password | default('', true) | length > 0)
+             or (host_ssh_identities.admin.pubkey | default('', true) | length > 0) }}
 
     - name: "[Bootstrap] Create/repair the admin account"
       ansible.builtin.user:
@@ -279,7 +280,7 @@
       when:
         - bootstrap_admin_defined | bool
         - bootstrap_admin.user != 'root'
-        - bootstrap_admin.password | default('') | length > 0
+        - bootstrap_admin.password | default('', true) | length > 0
 
     # --------------------------------------------------------------------------
     # SSH public keys: authorize each supplied vault_<id>_ssh_pubkey_file for its
@@ -290,7 +291,7 @@
         bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
           {%- for id, ident in host_ssh_identities.items() -%}
-          {%-   if (ident.pubkey | default('') | string | trim) | length > 0 -%}
+          {%-   if (ident.pubkey | default('', true) | string | trim) | length > 0 -%}
           {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
           {%-   endif -%}
           {%- endfor -%}
@@ -361,7 +362,7 @@
           {{ ([bootstrap_service_user]
               + ([bootstrap_admin.user]
                  if (bootstrap_admin_defined | default(false) | bool
-                     and bootstrap_admin.user | default('') != 'root')
+                     and bootstrap_admin.user | default('', true) != 'root')
                  else []))
              | unique }}
 

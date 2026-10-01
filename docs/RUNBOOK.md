@@ -34,7 +34,8 @@ Focused tags: `netbird`, `netbird_preflight`, `netbird_config`,
 `netbird_deploy`, `netbird_owner` (`make deploy TAGS=<tag>`).
 
 The deploy asserts inputs and the non-root account, generates missing secrets
-into `vault_managed.yml`, renders `config.yaml` / `dashboard.env` /
+into `vault.yml` (host-returned secrets go to `vault_managed.yml`), renders
+`config.yaml` / `dashboard.env` /
 `docker-compose.yml` to `{{ stack_dir }}` (`/opt/netbird`), starts the stack,
 waits for TLS, then optionally creates the first owner.
 
@@ -105,11 +106,11 @@ make restore FROM=backup/<host>/<stamp>
   (`netbird_data.tgz`), and restarts it. The archive holds user PII and hashed
   credentials.
 - The encryption key is **not** in the archive. It is
-  `inventory/host_vars/<host>/vault_managed.yml` on the control node — **back it
+  `inventory/host_vars/<host>/vault.yml` on the control node — **back it
   up separately and protect it**. Losing `vault_datastore_encryption_key` makes
   the archived data unrecoverable.
 - `restore` replaces the data volume, then redeploys. `config.yaml` is
-  re-rendered from the control node's current `vault_managed.yml`, so that file
+  re-rendered from the control node's current `vault.yml`, so that file
   must hold the **same** datastore key as when the data was archived.
 
 Verify after restore: the OIDC discovery URL answers and users can log in.
@@ -120,7 +121,7 @@ Verify after restore: the OIDC discovery URL answers and users can log in.
   `roles/netbird_server/defaults/main.yml`), then `make deploy`.
 - **Version rollback**: set the previous tag and re-run `make deploy`.
 - **Full rollback**: restore from a matching backup (data **and** the same
-  `vault_managed.yml`).
+  `vault.yml`).
 - **Config rollback**: `git revert` or edit the per-host vars, then `make
   deploy`.
 
@@ -148,4 +149,5 @@ ssh <host> 'cd /opt/netbird && docker compose ps'
 
 - Never commit `vault.yml`, `vault_managed.yml`, or `backup/` (all gitignored).
 - The vault password file is required to decrypt any vault.
-- Keep a copy of `vault_managed.yml` off-host, separate from data backups.
+- Keep a copy of both `vault.yml` (datastore key) and `vault_managed.yml` off-host,
+  separate from data backups.

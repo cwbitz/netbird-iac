@@ -76,7 +76,7 @@ means a password is set instead (generated into the encrypted vault). When the
 paths are set in `vault_<id>_ssh_privkey_file` (paths only, never raw keys).
 
 With `owner_email` set, the first owner is created automatically via `/api/setup`
-(if `owner_password` is empty, one is generated into `vault_managed.yml`). The
+(if `owner_password` is empty, one is generated into `vault.yml`). The
 same run creates an `admin` service user and a PAT for it, stored as
 `vault_admin_service_user_access_token` for the tenant phase, then deletes the
 one-time owner token. With no email, onboard at `https://<domain>/setup` — that
@@ -164,8 +164,8 @@ make restore FROM=backup/<host>/<stamp>  # paired restore
 The backup stops the container for a consistent SQLite copy and archives the
 `netbird_data` volume to `backup/<host>/<stamp>/`. The encryption key is **not**
 in the archive: it lives in the control node's
-`inventory/host_vars/<host>/vault_managed.yml`, which you must back up
-separately. Restore re-renders `config.yaml` from that file, so it must hold the
+`inventory/host_vars/<host>/vault.yml`, which you must back up separately.
+Restore re-renders `config.yaml` from that file, so it must hold the
 **same** datastore key as when the data was archived, or the data cannot be
 decrypted. `backup/` is gitignored; keep a copy off-host.
 
@@ -195,10 +195,13 @@ docs/RUNBOOK.md      # operations runbook (deploy, backup/restore, rollback)
 
 ## Secrets
 
-Never commit vaults. User secrets live in the encrypted
-`inventory/host_vars/<host>/vault.yml`; the role generates crypto material into
-the encrypted `vault_managed.yml` on first deploy (values are preserved on later
-runs). **Back up `vault_managed.yml`** — losing
+Never commit vaults. Ownership is split by direction:
+`inventory/host_vars/<host>/vault.yml` is control-authoritative — user-supplied
+values plus control-generated inputs passed to the host (the datastore/session/
+relay keys, the owner/ansible passwords). `vault_managed.yml` is
+host-authoritative — secrets the host returns (the `admin` PAT, setup-key
+secrets). A key lives in exactly one file; `make vault-migrate` moves legacy
+managed keys over. **Back up `vault.yml`** — losing
 `vault_datastore_encryption_key` makes encrypted user data unrecoverable.
 
 ## License

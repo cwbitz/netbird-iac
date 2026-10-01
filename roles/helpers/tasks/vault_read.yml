@@ -1,0 +1,59 @@
+---
+# ==============================================================================
+# Read a control-node vault file (encrypted or plaintext) into vault_read_data
+# (roles/helpers/tasks/vault_read.yml)
+#
+# Parameter (via include vars):
+#   vault_read_file  Absolute path on the control node.
+# ==============================================================================
+
+- name: "[VaultRead] Stat the file"
+  ansible.builtin.stat:
+    path: "{{ vault_read_file }}"
+  register: vault_read_stat
+  delegate_to: localhost
+  become: false
+
+- name: "[VaultRead] Read the file"
+  ansible.builtin.slurp:
+    src: "{{ vault_read_file }}"
+  register: vault_read_raw
+  when: vault_read_stat.stat.exists | default(false)
+  delegate_to: localhost
+  become: false
+
+- name: "[VaultRead] Decrypt the encrypted file"
+  ansible.builtin.command: >-
+    ansible-vault view
+    --vault-password-file {{ lookup('ansible.builtin.env', 'HOME') }}/.config/projects/netbird-iac/ansible_vault_password
+    {{ vault_read_file }}
+  register: vault_read_view
+  changed_when: false
+  no_log: true
+  delegate_to: localhost
+  become: false
+  when:
+    - vault_read_stat.stat.exists | default(false)
+    - "'$ANSIBLE_VAULT' in (vault_read_raw.content | default('') | b64decode)"
+
+- name: "[VaultRead] Parse the encrypted file"
+  ansible.builtin.set_fact:
+    vault_read_data: "{{ vault_read_view.stdout | default('{}') | from_yaml }}"
+  no_log: true
+  when:
+    - vault_read_stat.stat.exists | default(false)
+    - "'$ANSIBLE_VAULT' in (vault_read_raw.content | default('') | b64decode)"
+
+- name: "[VaultRead] Parse the plaintext file"
+  ansible.builtin.set_fact:
+    vault_read_data: "{{ (vault_read_raw.content | default('') | b64decode) | from_yaml }}"
+  no_log: true
+  when:
+    - vault_read_stat.stat.exists | default(false)
+    - "'$ANSIBLE_VAULT' not in (vault_read_raw.content | default('') | b64decode)"
+
+- name: "[VaultRead] Default to empty when the file is missing"
+  ansible.builtin.set_fact:
+    vault_read_data: {}
+  no_log: true
+  when: not (vault_read_stat.stat.exists | default(false))
