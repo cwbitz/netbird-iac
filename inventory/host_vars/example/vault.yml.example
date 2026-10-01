@@ -31,7 +31,6 @@ vault_host:
 # vault_*_ssh_pubkey_file is an optional control-node path to the matching public
 # key; when set, `make host-bootstrap` authorizes it for that account. Empty is
 # ignored (nothing is generated). Only paths, never raw key strings.
-vault_root_user: "root"
 vault_root_password: ""
 vault_root_ssh_privkey_file: "~/.ssh/id_ed25519"
 vault_root_ssh_pubkey_file: ""

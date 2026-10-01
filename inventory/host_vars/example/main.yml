@@ -22,7 +22,7 @@ host_ssh_port: "{{ vault_host.port | default(22) }}"
 # never auto-generated). Only paths, never raw strings.
 host_ssh_identities:
   root:
-    user: "{{ vault_root_user | default('root') }}"
+    user: "root"
     password: "{{ vault_root_password | default('') }}"
     privkey: "{{ vault_root_ssh_privkey_file | default('') }}"
     pubkey: "{{ vault_root_ssh_pubkey_file | default('') }}"
