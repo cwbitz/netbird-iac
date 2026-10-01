@@ -28,7 +28,7 @@
     tenant_build_dir: "{{ playbook_dir }}/../.ansible_cache/tenant_config/{{ inventory_hostname }}"
     config_dir: "{{ tenant_build_dir }}"
     netbird_api_url: "https://{{ domain_name }}"
-    netbird_api_token: "{{ vault_admin_service_user_access_token | default(vault_pat | default('')) }}"
+    netbird_api_token: "{{ vault_admin_service_user_access_token | default('') }}"
     netbird_validate_certs: true
     tenant_commit: false
     tenant_strict: false
