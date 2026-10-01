@@ -13,18 +13,17 @@ server:
   logLevel: "{{ log_level }}"
   logFile: "console"
 
-  # Skip the GeoLite2 DB download at startup (needs outbound access to
-  # pkgs.netbird.io; disabling turns off geo-based posture checks).
+  # GeoLite2 DB download at startup (needs pkgs.netbird.io; disabling turns off
+  # geo-based posture checks).
   disableGeoliteUpdate: {{ 'true' if disable_geolite_update | bool else 'false' }}
 
-  # Relay auth secret. Padding is stripped to match the upstream quickstart
-  # script's expectation for this value.
+  # Relay auth secret (base64 padding stripped, matching the quickstart).
   authSecret: "{{ vault_relay_auth_secret | replace('=', '') }}"
   dataDir: "/var/lib/netbird"
 
   auth:
-    # Embedded IdP (Dex): local users by default; external OIDC providers can be
-    # added later from the Dashboard without touching this file.
+    # Embedded Dex IdP: local users by default. Add external OIDC providers from
+    # the Dashboard; this file does not need to change.
     issuer: "{{ http_protocol }}://{{ domain_name }}/oauth2"
     signKeyRefreshEnabled: true
     sessionCookieEncryptionKey: "{{ vault_session_cookie_encryption_key }}"
@@ -46,6 +45,6 @@ server:
 
   store:
     engine: "sqlite"
-    # Must keep base64 padding for Go's base64.StdEncoding. Losing this key makes
-    # encrypted user data unrecoverable — back it up with vault_managed.yml.
+    # Must keep base64 padding (Go base64.StdEncoding). Losing this key makes
+    # encrypted user data unrecoverable — keep vault_managed.yml safe.
     encryptionKey: "{{ vault_datastore_encryption_key }}"

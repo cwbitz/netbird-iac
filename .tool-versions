@@ -1,15 +1,5 @@
-# Control-node toolchain — SINGLE SOURCE OF TRUTH for the pinned versions.
-#
-# This is the asdf `.tool-versions` format, read natively by mise, asdf and
-# other asdf-compatible version managers. Never duplicate these versions
-# elsewhere: mise.toml intentionally has NO [tools] section.
-#
-# Install:  mise install      (or: asdf install)
-# Check:    mise current      (or: asdf current)
-#
-# The playbook itself runs with whatever ansible-core is on PATH (any install
-# method); the site.yml preflight validates the engine against the supported
-# range.
+# Pinned control-node toolchain (asdf format; mise reads it natively).
+# Install: mise install / asdf install. Do not duplicate these pins elsewhere.
 
 python 3.11.15
 ansible-core 2.19.11

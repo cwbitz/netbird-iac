@@ -1,12 +1,12 @@
 ---
 # ==============================================================================
-# Ensure a control-node vault file is encrypted (roles/helpers/tasks/ensure_vault_encrypted.yml)
+# Ensure a control-node vault file is encrypted
+# (roles/helpers/tasks/ensure_vault_encrypted.yml)
 #
-# Safety net for files that should always be ansible-vault encrypted but may have
-# ended up plaintext (e.g. copied back from a backup). Encrypts in place when the
-# content does not start with the vault header.
+# Encrypts a *.yml file in place when it is not already ansible-vault encrypted
+# (a vault file should never stay plaintext, e.g. after a restore).
 #
-# Parameters (via include vars):
+# Parameter (via include vars):
 #   ensure_vault_encrypted_file  Absolute path on the control node.
 # ==============================================================================
 

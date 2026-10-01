@@ -3,16 +3,14 @@
 # Shared group defaults for the NetBird server hosts
 # (inventory/group_vars/netbird/main.yml)
 # ==============================================================================
-# Cross-host tunables with a safe default. Per-host overrides belong in
-# inventory/host_vars/<hostname>/main.yml; image and behaviour defaults belong
-# in roles/netbird_server/defaults/main.yml.
+# Per-host overrides go in inventory/host_vars/<hostname>/main.yml; image and
+# behaviour defaults live in roles/netbird_server/defaults/main.yml.
 
-# Directory on the target host that holds the rendered stack (docker-compose.yml,
-# config.yaml, dashboard.env) and the Docker named volume backing the data.
+# Target-host directory holding the rendered stack (docker-compose.yml,
+# config.yaml, dashboard.env).
 stack_dir: "/opt/netbird"
 
 # Install Docker Engine + the Compose v2 plugin from Docker's official apt
-# repository when the host does not already have them (Debian-family only). Set
-# to false to require Docker to be preinstalled; a missing Docker then fails the
-# preflight with install guidance instead.
+# repository when missing (Debian-family). Set false to require a preinstalled
+# Docker; the preflight then fails with install guidance.
 install_docker: true

@@ -19,37 +19,25 @@ backup/
 .vault_pass*
 *.vault_pass
 
-# Ignore ALL Ansible Vault credential/secret files recursively.
-# This covers:
-#   - inventory/host_vars/<hostname>/vault.yml           (user-set real secrets)
-#   - inventory/host_vars/<hostname>/vault_managed.yml (role-generated secrets)
-# The committed schema reference is
-# inventory/host_vars/example/vault.yml.example.
-# NEVER commit a vault*.yml file (even encrypted) to eliminate brute-force risk.
-# Scoped to vault.yml + vault_*.yml (NOT vault*.yml) so application task files
-# like roles/netbird_server/tasks/*_tasks.yml stay trackable.
+# Never commit a vault*.yml file, even encrypted. Covers user secrets (vault.yml)
+# and role-generated secrets (vault_managed.yml); the committed schema reference
+# is inventory/host_vars/example/vault.yml.example.
 **/vault.yml
 **/vault_*.yml
-# ...but role task files whose names start with vault_ are source, not secrets
-# (e.g. roles/helpers/tasks/vault_secrets_dispatch.yml).
+# Keep role task files that merely start with vault_ (source, not secrets).
 !roles/**/vault_*.yml
 
-# Real per-host inventory is local-only: each real host has its own
-# inventory/host_vars/<hostname>/ directory. Only the example/ template folder
-# is committed; every real node directory stays out of git.
+# Real per-host inventory is local-only; only the example/ template is committed.
 inventory/host_vars/*
 !inventory/host_vars/example/
 
-# The real inventory (real hostnames) is local-only; the committed template is
-# inventory/hosts.yml.example.
+# Real inventory (real hostnames) is local-only.
 inventory/hosts.yml
 
-# Project-local Ansible runtime environment (collections/modules/roles installed
-# via ansible-galaxy into .ansible/). Never commit installed collections.
+# Installed collections/roles (ansible-galaxy output). Never commit these.
 .ansible/
 
-# Rendered per-stack config may contain rendered secrets. Only the *.j2
-# templates are tracked here, but guard against a stray rendered copy anyway.
+# Guard against a stray rendered copy of a config that may hold secrets.
 **/config.yaml
 **/dashboard.env
 

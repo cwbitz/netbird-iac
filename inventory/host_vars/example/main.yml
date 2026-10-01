@@ -2,28 +2,24 @@
 # ==============================================================================
 # Per-host configuration template (inventory/host_vars/example/main.yml)
 # ==============================================================================
-# Copy this to inventory/host_vars/<hostname>/main.yml for every host you manage
-# (one directory per host). This example/ folder is the only committed content
-# under host_vars/; every real <hostname>/ directory is gitignored.
+# Copy to inventory/host_vars/<hostname>/main.yml for each host. Only example/ is
+# committed; real <hostname>/ directories are gitignored.
 #
-# THE single per-host variable file the user maintains. Real secrets stay in the
-# encrypted vault.yml next to this file; automation-managed secrets are written to
-# the encrypted vault_managed.yml next to it.
+# This is the per-host file you maintain. Put secrets/PII in the sibling
+# vault.yml; the role writes runtime secrets to the sibling vault_managed.yml.
 
 # --- Topology ----------------------------------------------------------------
-# ansible_host comes from hosts.yml; the port comes from the per-host topology
-# map in vault.yml (flat: vault_host = {ip, port}).
+# ansible_host comes from hosts.yml; the port from vault_host in vault.yml.
 host_ssh_port: "{{ vault_host.port | default(22) }}"
 
 # --- SSH connection identity -------------------------------------------------
-# `host-bootstrap` probes [ansible, admin, root] and uses the first that works.
-# Normal runs (site/tenant/backup) always use `ansible`. For each identity you
-# may provide a password AND/OR a private key; when both are set SSH tries the
-# key first, then falls back to the password.
+# `host-bootstrap` probes [ansible, admin, root] and uses the first that works;
+# normal runs always use `ansible`. Each identity may set a password and/or a
+# private key file (SSH tries the key first, then the password).
 #
-# `pubkey` is an optional control-node path to the matching public key. When set,
-# `host-bootstrap` authorizes it for that account on the target host; when empty
-# it is ignored (keys are never auto-generated). Only paths, never raw strings.
+# `pubkey` is an optional control-node path to the matching public key; when set,
+# `host-bootstrap` authorizes it for that account. Empty is ignored (keys are
+# never auto-generated). Only paths, never raw strings.
 host_ssh_identities:
   root:
     user: "{{ vault_root_user | default('root') }}"
@@ -52,7 +48,7 @@ host_ssh_become: "{{ host_ssh_identity.become }}"
 # Prefer key, then password, at the SSH layer (single password prompt max).
 host_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
 
-# Ansible connection-plugin interface (fixed names; sourced from host_ssh_*).
+# Ansible connection-plugin interface (sourced from host_ssh_*).
 ansible_port: "{{ host_ssh_port }}"
 ansible_user: "{{ host_ssh_user }}"
 ansible_password: "{{ host_ssh_password }}"
@@ -68,18 +64,14 @@ domain_name: "{{ vault_domain_name }}"
 letsencrypt_email: "{{ vault_letsencrypt_email }}"
 
 # --- Optional first-owner bootstrap ------------------------------------------
-# When owner_email is set the role creates the first owner through the
-# unauthenticated /api/setup endpoint (only works while the instance has no
-# accounts). If owner_password is also set it is used; if it is empty a
-# password is generated into the encrypted vault_managed.yml. Leave the email
-# empty to onboard manually at https://<domain>/setup (a password set without an
-# email is not applied and produces a warning).
+# When owner_email is set the role creates the first owner via /api/setup (only
+# works while the instance has no accounts). If owner_password is empty one is
+# generated into vault_managed.yml. Leave the email empty to onboard manually at
+# https://<domain>/setup (a password without an email is ignored with a warning).
 #
-# On that first setup the role also bootstraps the tenant automation credential
-# (fixed behaviour, no switch): it asks /api/setup for a short-lived owner access
-# token, creates an 'admin' service user and a Personal Access Token for it,
-# persists that token as vault_admin_service_user_access_token in
-# vault_managed.yml, then deletes the owner access token again.
+# On that first setup the role also bootstraps tenant automation: it creates an
+# 'admin' service user and a PAT for it, and persists that token as
+# vault_admin_service_user_access_token in vault_managed.yml.
 owner_email: "{{ vault_owner_email | default('') }}"
 owner_name: "{{ vault_owner_name | default('') }}"
 owner_password: "{{ vault_owner_password | default('') }}"
@@ -98,33 +90,28 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # docker_registry_mirrors:
 #   - "https://docker.1ms.run"
 # make host-bootstrap probes [ansible, admin, root] and creates the 'ansible'
-# service account when not already connected as it. For every identity whose
-# vault_<id>_ssh_pubkey_file is set, the public key at that path is authorized
-# for the matching account (unset -> ignored, never generated). The ansible
-# pubkey also switches the service account to key auth; otherwise a password is
-# set (host_bootstrap_password, else generated into the encrypted vault). The
-# matching private key path is set explicitly in the same vault
-# (vault_<id>_ssh_privkey_file). Only paths are accepted, never raw key strings.
+# service account when not already connected as it. Each configured
+# vault_<id>_ssh_pubkey_file is authorized for its account; unset is ignored. The
+# ansible pubkey switches the account to key auth, otherwise a password is set
+# (host_bootstrap_password, else generated into the encrypted vault). Private key
+# paths go in vault.yml (vault_<id>_ssh_privkey_file).
 
 # ==============================================================================
 # Tenant configuration (playbooks/tenant.yml)
 # ==============================================================================
 # Desired state for the NetBird account (users, groups, policies, networks,
-# DNS, account settings, ...), applied against the running server's REST API.
-# Define values here (non-secret) or in vault.yml (secret/PII); the play
-# renders them into .ansible_cache/tenant_config/<host>/ and applies them with
-# the community.ansible_netbird collection (plain names -> IDs).
+# DNS, account settings, ...), applied against the running server's REST API via
+# community.ansible_netbird. Define non-secret values here, secret/PII in
+# vault.yml; the play renders them into .ansible_cache/tenant_config/<host>/.
 #
-# PREVIEW by default: `make netbird-plan`; apply with `make netbird-apply`
-# (+ `make netbird-apply-strict` to remove unmanaged resources).
-#
-# Unset variables are treated as empty: in the default non-strict mode those
-# resource types are left untouched; strict mode may remove unmanaged ones.
+# Preview by default: `make netbird-plan`; apply with `make netbird-apply`
+# (+ `make netbird-apply-strict` to remove unmanaged resources). Unset variables
+# are left untouched unless strict mode removes unmanaged resources.
 #
 # --- Account settings (settings.yml) -----------------------------------------
-# Account-wide settings (API /api/accounts). Every option is shown with its
-# default; uncomment and adjust as needed. Group-list options accept plain group
-# names (resolved to IDs by the collection). Enterprise-gated options are marked.
+# Account-wide settings (API /api/accounts). Each option is shown with its
+# default; uncomment to change. Group lists accept plain names (resolved to IDs).
+# ENTERPRISE-gated options are marked.
 # netbird_settings:
 #   # Authentication
 #   peer_login_expiration_enabled: true        # require periodic SSO re-auth (setup-key peers exempt)
@@ -190,14 +177,10 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # netbird_dns_disabled_management_groups: []
 #
 # --- Setup keys (setup_keys.yml) ---------------------------------------------
-# The secret value is returned by the API only at creation. After a successful
-# `netbird-apply` the play persists each newly created key into the encrypted
-# vault_managed.yml as `vault_setup_key_<name>` (non-alphanumerics -> '_'), so
-# read it there instead of recreating the key.
-# Expiry: `expires_in` is seconds and must be > 0 (the collection preflight
-# rejects 0), with a maximum of 31536000 (1 year). A never-expiring key (the API
-# accepts expires_in: 0) is NOT expressible here; create it once via the API or
-# the community.ansible_netbird.netbird_setup_key module if you need one.
+# The secret is returned only at creation; after `netbird-apply` it is persisted
+# to vault_managed.yml as vault_setup_key_<name> (non-alphanumerics -> '_').
+# expires_in is seconds, 1..31536000 (1 year max). A never-expiring key
+# (expires_in: 0) is not expressible here; create it once via the API instead.
 # netbird_setup_keys: []
 #   - name: "server-enrollment"
 #     key_type: "reusable"          # one-off | reusable
@@ -208,26 +191,22 @@ owner_password: "{{ vault_owner_password | default('') }}"
 #     state: present
 #
 # --- Services (services.yml) -------------------------------------------------
-# Services and custom domains need a registered reverse-proxy cluster. The
-# cluster is created by the self-hosted proxy software itself (BYOP): deploy it
-# and it registers automatically. The collection only deletes clusters
-# (netbird_proxy_cluster, state=absent) -- it cannot create them.
+# Services and custom domains need a registered proxy cluster, which only the
+# self-hosted proxy software itself can create (BYOP); the collection can delete
+# a cluster (netbird_proxy_cluster, state=absent) but not create one.
 # netbird_services: []
 # netbird_service_domains: []
 #
 # --- Agent Network (agent_network.yml) ---------------------------------------
-# Agent Network is the keyless AI-gateway access layer (open source, self-hosted,
-# beta). It is a SEPARATE self-hosted deployment (not the management container):
-# see https://docs.netbird.io/agent-network/quickstart. Edition notes:
-#   Community (free/AGPLv3): providers, guardrails, policies, budget/token
-#     limits, settings, SSO/MFA, usage and access logs.
-#   Enterprise (commercial license): SCIM/IdP auto-sync, audit/access-log
-#     streaming to SIEM, MDM/EDR device controls, HA, MSP/multi-tenant.
-# On an account that never bootstrapped agent-network, the settings module fails
-# with "Agent-network settings have not been bootstrapped" because the
-# collection's configure role does not pass the required proxy_address /
-# endpoint. Bootstrap once out-of-band, or leave netbird_an_settings unset.
-# Providers also need a real upstream credential (validated at creation time).
+# Agent Network is a separate self-hosted deployment (not the management
+# container); see https://docs.netbird.io/agent-network/quickstart. Community
+# covers providers, guardrails, policies, budget/token limits, settings, SSO/MFA
+# and logs; SCIM/IdP sync, SIEM streaming, MDM/EDR, HA and multi-tenant are
+# Enterprise.
+# netbird_an_settings needs the account's agent-network bootstrapped first (the
+# collection role does not pass proxy_address/endpoint), so it fails on a fresh
+# account; bootstrap once out-of-band or leave it unset.
+# netbird_an_providers needs a real upstream credential (validated at creation).
 # netbird_an_settings: {}
 # netbird_an_providers: []
 # netbird_an_guardrails: []
@@ -235,12 +214,10 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # netbird_an_budget_rules: []
 #
 # --- Users / service users (applied directly, not via a config file) ---------
-# Local-user passwords are generated and returned only once (not persisted);
-# prefer invites, or put this in vault.yml if the emails are sensitive.
-# auto_groups take plain group names (resolved to IDs before the API call).
-# NOTE: automatic user/group provisioning from an IdP (SCIM/IdP sync) is an
-# Enterprise/Cloud feature; on Community you invite users and assign groups
-# manually (as below). Manual local users are Community.
+# Local-user passwords are generated and returned once (not persisted); prefer
+# invites, and put emails in vault.yml if they are sensitive. auto_groups take
+# plain names (resolved to IDs before the API call). IdP-driven provisioning
+# (SCIM/IdP sync) is Enterprise; manual users are Community.
 # netbird_users:
 #   - email: "alice@example.com"
 #     name: "Alice"

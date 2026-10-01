@@ -2,37 +2,21 @@
 # ==============================================================================
 # Apply the declarative NetBird tenant configuration (desired state as code).
 #
-# The desired state is expressed as Ansible variables in the per-host vars
-# (inventory/host_vars/<host>/main.yml for non-secret values, vault.yml for
-# secrets/PII). Because the community.ansible_netbird configure role reads a
-# directory of raw YAML (it does not template), this play renders those
-# variables into a generated config directory and hands it to the role:
+# Desired state comes from the per-host vars (inventory/host_vars/<host>/main.yml
+# for non-secret values, vault.yml for secrets/PII). This play renders those
+# variables into a generated, gitignored directory and applies them to the
+# running server's REST API via community.ansible_netbird:
 #
-#   inventory/host_vars/<host>/{main,vault}.yml  ->  generated YAML  ->  API
+#   inventory/host_vars/<host>/{main,vault}.yml
+#     -> .ansible_cache/tenant_config/<host>/  ->  NetBird API
 #
-# Generated directory (gitignored, regenerated every run, per host):
-#   .ansible_cache/tenant_config/<host>/
-#
-# Dumped every run from the variables below, so it is never hand-edited:
-#   netbird_settings, netbird_groups, netbird_posture_checks, netbird_policies,
-#   netbird_dns_nameserver_groups, netbird_dns_zones,
-#   netbird_dns_disabled_management_groups, netbird_networks,
-#   netbird_setup_keys, netbird_services, netbird_service_domains,
-#   netbird_an_settings, netbird_an_providers, netbird_an_guardrails,
-#   netbird_an_policies, netbird_an_budget_rules.
-#
-# Users/service users are NOT part of the collection's Config-as-Code model (it
-# ships a separate netbird_user module instead), so they are applied here
-# directly from netbird_users / netbird_service_users, gated on commit.
-#
-# PREVIEW BY DEFAULT: nothing is changed unless tenant_commit=true.
+# Preview by default; nothing changes unless tenant_commit=true:
 #   make netbird-plan          # read-only diff
 #   make netbird-apply         # apply
 #   make netbird-apply-strict  # apply + remove unmanaged resources
 #
-# Requires vault_admin_service_user_access_token (the 'admin' service-user PAT
-# provisioned by the server bootstrap; on older hosts the deprecated vault_pat is
-# still accepted as a fallback).
+# Requires vault_admin_service_user_access_token (created by the first-owner
+# bootstrap, or set in vault.yml).
 # ==============================================================================
 
 - name: Apply NetBird tenant configuration as code
@@ -40,7 +24,7 @@
   connection: local
   gather_facts: false
   vars:
-    # Generated config directory (gitignored; see .ansible_cache/ in .gitignore).
+    # Generated config directory (gitignored).
     tenant_build_dir: "{{ playbook_dir }}/../.ansible_cache/tenant_config/{{ inventory_hostname }}"
     config_dir: "{{ tenant_build_dir }}"
     netbird_api_url: "https://{{ domain_name }}"
@@ -48,12 +32,9 @@
     netbird_validate_certs: true
     tenant_commit: false
     tenant_strict: false
-    # Run the API modules with the control node's Ansible Python (connection is
-    # local); avoids interpreter-discovery picking a non-existent system Python.
+    # Run API modules with the control node's Python (connection is local).
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
-    # The tenant phase is local API work (no privilege needed). Disable the
-    # per-host become so the generated files and the collection's localhost
-    # operations run as the same non-root user.
+    # Local API work only; no privilege needed.
     ansible_become: false
 
   tasks:
@@ -97,12 +78,10 @@
           inventory/host_vars/{{ inventory_hostname }}/vault.yml and re-run.
 
     # --------------------------------------------------------------------------
-    # A routed network references its router/gateway PEER by name, but that peer
-    # is enrolled by the client project using a setup key this play creates — so
-    # on the first run the gateway does not exist yet. Fetch the live peers and
-    # keep only networks whose routers are all enrolled; a network without its
-    # gateway is skipped (with a warning) and converges automatically on a later
-    # run once the client has joined. No manual toggling needed.
+    # A routed network names its gateway PEER, which the client project enrolls
+    # using a setup key this play creates. Apply a network only once all of its
+    # router peers are enrolled; the rest are skipped with a warning and converge
+    # on a later run.
     # --------------------------------------------------------------------------
     - name: "[Tenant] Fetch peers for routed-network readiness"
       community.ansible_netbird.netbird_info:
@@ -149,8 +128,7 @@
       when: (tenant_network_split.pending | default([])) | length > 0
 
     # --------------------------------------------------------------------------
-    # Generate the config directory the collection role consumes from the
-    # per-host variables (the role reads raw YAML and does not template).
+    # Render the config directory the collection role consumes.
     # --------------------------------------------------------------------------
     - name: "[Tenant] Clean the generated config directory"
       ansible.builtin.file:
@@ -207,10 +185,8 @@
         mode: "0600"
 
     # --------------------------------------------------------------------------
-    # Desired state: settings, groups, posture checks, setup keys, networks,
-    # DNS, services and policies. The role resolves plain names to IDs and
-    # applies in dependency order. With commit=false it only renders a read-only
-    # diff.
+    # Apply the desired state (plain names resolved to IDs, dependency order).
+    # With tenant_commit=false this only produces a read-only diff.
     # --------------------------------------------------------------------------
     - name: "[Tenant] Apply the config-as-code desired state"
       ansible.builtin.include_role:
@@ -220,10 +196,8 @@
         strict: "{{ tenant_strict }}"
 
     # --------------------------------------------------------------------------
-    # A setup key's secret is returned by the API only at creation and cannot be
-    # retrieved afterwards. Persist each newly created key into the encrypted
-    # vault_managed.yml as vault_setup_key_<sanitized-name>, so enrolling peers
-    # later does not require recreating the key.
+    # A setup key's secret is returned only at creation. Persist each newly
+    # created key as vault_setup_key_<name> in vault_managed.yml.
     # --------------------------------------------------------------------------
     - name: "[Tenant] Persist newly created setup key values in the vault"
       ansible.builtin.include_role:
@@ -242,11 +216,9 @@
         - (item.setup_key.key | default('')) | length > 0
 
     # --------------------------------------------------------------------------
-    # Users and service users are not covered by the collection's Config-as-Code
-    # model (it ships a separate netbird_user module), so they are applied here
-    # from netbird_users / netbird_service_users. The module takes group IDs for
-    # auto_groups, so plain names are resolved against the live groups first.
-    # Runs only on commit (never during preview) and after groups exist.
+    # Users/service users use the separate netbird_user module, so they are
+    # applied here (after groups). auto_groups take plain names, resolved to IDs
+    # against the live groups. Runs only on commit.
     # --------------------------------------------------------------------------
     - name: "[Tenant] Fetch groups for user auto_groups resolution"
       community.ansible_netbird.netbird_info:

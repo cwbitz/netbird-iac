@@ -2,31 +2,24 @@
 # ==============================================================================
 # Ansible Inventory template (inventory/hosts.yml.example)
 # ==============================================================================
-# Copy this to inventory/hosts.yml and edit the host name for your environment.
-# The real inventory/hosts.yml is gitignored (it contains real hostnames / IPs);
-# only this example is committed.
+# Copy this to inventory/hosts.yml and edit the host name. The real hosts.yml is
+# gitignored (real hostnames/IPs); only this example is committed.
 #
-# Real values are resolved from the encrypted per-host
-# inventory/host_vars/<hostname>/vault.yml via {{ vault_host.* }}. Inventory
-# names are REAL hostnames; each real host_vars/<hostname>/ directory is also
-# gitignored (only host_vars/example/ is committed).
+# Host values resolve from inventory/host_vars/<hostname>/vault.yml via
+# {{ vault_host.* }}. Inventory names are real hostnames; each real
+# host_vars/<hostname>/ directory is also gitignored.
 #
-# Single group:
-#   - netbird: the public VPS running the self-hosted NetBird server. The
-#     project is always driven from the control node; there is no on-box/local
-#     execution mode.
-#
-# Connection identity and per-host settings live in
+# Single group `netbird`: the public VPS running the self-hosted NetBird server.
+# The project is always driven from the control node (no on-box mode). Connection
+# identity and per-host settings live in
 # inventory/host_vars/<hostname>/main.yml.
 # ==============================================================================
 
 all:
   vars:
-    # Supported ansible-core engine range for the control node. Any install
-    # method is fine (mise/pip/pipx/apt); the playbook preflight asserts the
-    # running engine is within [min, max) and fails fast otherwise. Set
-    # ansible_core_allow_untested=true to deliberately bypass for an untested
-    # newer engine.
+    # Supported ansible-core range for the control node; the preflight asserts the
+    # running engine is within [min, max). Set ansible_core_allow_untested=true to
+    # bypass for an untested newer engine.
     ansible_core_min_version: "2.19.0"
     ansible_core_max_version: "2.20.0"
     ansible_core_allow_untested: false

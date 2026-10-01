@@ -2,9 +2,8 @@
 # ==============================================================================
 # Handlers (roles/netbird_server/handlers/main.yml)
 # ==============================================================================
-# Restart the stack when a bind-mounted config file changes. docker compose does
-# not recreate a container just because the content of a bind-mounted file
-# changed, so a re-render alone would leave the old config running.
+# Restart the stack after a config re-render: docker compose does not recreate a
+# container when only a bind-mounted file's content changes.
 - name: "[NetBird] Restart the stack"
   tags: [netbird, netbird_deploy]
   community.docker.docker_compose_v2:

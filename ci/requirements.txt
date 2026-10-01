@@ -1,5 +1,3 @@
-# CI-only lint tooling. ansible-core comes from .tool-versions (see
-# .github/workflows/ci.yml); ansible-lint is pinned here so lint results are
-# reproducible. Renovate tracks it via the pip_requirements manager and flags
-# updates for manual review.
+# CI-only lint tooling. ansible-core comes from .tool-versions; ansible-lint is
+# pinned here for reproducible lint results. Renovate tracks it (pip_requirements).
 ansible-lint==26.6.0

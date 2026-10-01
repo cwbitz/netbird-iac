@@ -2,27 +2,22 @@
 # ==============================================================================
 # Host bootstrap (`make host-bootstrap`; never part of playbooks/site.yml).
 #
-# It probes the SSH identities in order [ansible, admin, root] and uses the
-# first that works. If that identity is NOT `ansible`, it (re)creates the
-# least-privilege `ansible` service account; if it already IS `ansible` it only
-# applies the optional mirrors. This self-heals a deleted/rotated ansible
-# password or key (ansible login fails -> falls back to root -> recreates it).
+# Optional, opt-in host tuning. Probes the SSH identities in order
+# [ansible, admin, root] and uses the first that works; if that is not `ansible`,
+# it (re)creates the least-privilege `ansible` service account. Can also set
+# package/registry mirrors and authorize configured SSH public keys.
 #
-# SSH public keys (per identity, opt-in) — for every identity whose
-#   vault_{root,admin,ansible}_ssh_pubkey_file is set, the key at that
-#   control-node path is authorized for the matching account on the target.
-#   Unset/empty -> skipped (keys are never auto-generated). Paths only, never
-#   raw key strings. The matching private keys the control node connects with
-#   live in vault.yml too (vault_<id>_ssh_privkey_file).
+# Per identity (root/admin/ansible), vault.yml may set a password and/or a
+# private key file (SSH tries the key first). vault_<id>_ssh_pubkey_file is an
+# optional control-node path to the matching public key; when set it is
+# authorized for that account. Unset is ignored (keys are never generated).
 #
-# Service account auth (ansible identity) — exactly one of:
-#   vault_ansible_ssh_pubkey_file  control-node path to the .pub file (key auth)
-#   (neither)                      a password is set (password auth):
-#                                  host_bootstrap_password (optional;
-#                                  else generated into vault_ansible_password)
-#   If sshd has password auth disabled, login fails — sshd config is out of scope.
+# The `ansible` account uses key auth when vault_ansible_ssh_pubkey_file is set;
+# otherwise a password is set (host_bootstrap_password, else generated into
+# vault_ansible_password). If sshd disables password auth, login fails (sshd
+# config is out of scope).
 #
-# Region mirrors (each a no-op unless set):
+# Mirrors (each a no-op unless set):
 #   host_apt_mirror / host_apt_security_mirror (derived) / docker_registry_mirrors
 # ==============================================================================
 
@@ -105,8 +100,8 @@
 - name: Bootstrap host system tuning
   hosts: netbird_bootstrap
   gather_facts: true
-  # add_host vars rank below inventory host_vars, so the probed connection
-  # identity must be applied as play vars to actually take effect.
+  # add_host vars rank below inventory host_vars; apply the probed identity as
+  # play vars so it takes effect.
   vars:
     ansible_user: "{{ hostvars['localhost'].probe_chosen.user }}"
     ansible_password: "{{ hostvars['localhost'].probe_chosen.password }}"
@@ -204,7 +199,7 @@
       notify: Restart docker
 
     # --------------------------------------------------------------------------
-    # Service account: create/repair only when we did NOT connect as ansible.
+    # Service account: create/repair only when not already connected as ansible.
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
@@ -252,9 +247,9 @@
         - not (bootstrap_use_key | bool)
 
     # --------------------------------------------------------------------------
-    # Admin identity (optional): when the user defines admin credentials and/or
-    # a public key, create/repair the account and set its password here. Root
-    # always exists and is never created; the service account is handled above.
+    # Admin identity (optional): when credentials and/or a public key are set,
+    # create/repair the account and set its password. Root is never created; the
+    # service account is handled above.
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:
@@ -287,9 +282,8 @@
         - bootstrap_admin.password | default('') | length > 0
 
     # --------------------------------------------------------------------------
-    # SSH public keys (per identity, opt-in): authorize every explicitly supplied
-    # vault_<id>_ssh_pubkey_file for its account. Empty/unset -> ignored (never
-    # generated). Independent of the service-account key/password mode above.
+    # SSH public keys: authorize each supplied vault_<id>_ssh_pubkey_file for its
+    # account. Empty/unset is ignored (never generated).
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the explicitly supplied public keys"
       ansible.builtin.set_fact:

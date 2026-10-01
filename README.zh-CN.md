@@ -1,10 +1,10 @@
 # netbird-iac
 
-用 Ansible 把 **自托管 NetBird 服务端**部署到公网 Debian 系 VPS：当前合并版
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+用 Ansible 幂等地把 **自托管 NetBird 服务端**部署到公网 Debian 系 VPS：合并版
 `Management + Signal + Relay + STUN` 容器、NetBird Dashboard，以及内置 Traefik
-反向代理（自动签发 Let's Encrypt 证书）。目录结构与官方
-[`getting-started.sh`](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
-一键脚本一致，但改为幂等、可版本控制的 IaC。
+反向代理（自动签发 Let's Encrypt 证书）。
 
 ## 部署内容
 
@@ -46,41 +46,34 @@ make host-bootstrap      # 创建 ansible 账号 + sudo
 #   vault_ansible_ssh_privkey_file: ~/.ssh/...   （或 vault_ansible_password）
 ```
 
-`host-bootstrap` 会按 `ansible → admin → root` 顺序探测，用第一个能登录的身份；若非
+`host-bootstrap` 按 `ansible → admin → root` 顺序探测，用第一个能登录的身份；若非
 ansible，则创建该服务账号，并确保 Docker Engine + Compose v2 已安装（缺失时安装 Docker
-CE）。对每个设置了 `vault_<id>_ssh_pubkey_file` 的身份，会把该路径的
-公钥写入被控机对应账号（`ansible` / `admin` / `root`）；留空则忽略（不会自动生成密钥）。
-ansible 身份未给公钥时才设密码（自动生成并写入加密 vault）。当 `admin` 身份被配置（提供
-密码和/或公钥）时，会自动创建该账号、设置密码并授权公钥。对应的私钥路径由
-`vault_<id>_ssh_privkey_file` 显式指定（与公钥路径同处 vault.yml，仅接受路径，不接受
-内联公钥字符串）。镜像源也在这里配置（见下）。
+CE），同时应用下方镜像源。对每个设置了 `vault_<id>_ssh_pubkey_file` 的身份，把该路径
+公钥写入被控机对应账号（`ansible` / `admin` / `root`）；留空则忽略。ansible 身份未给
+公钥时才设密码（自动生成并写入加密 vault）。配置了 `admin` 身份时也会创建/更新该账号。
+私钥路径由 `vault_<id>_ssh_privkey_file` 指定（仅接受路径，不接受内联字符串）。
 
-vault 里填了 `owner_email` 时会通过 `/api/setup` 自动创建首个 owner；
-`owner_password` 留空则由角色生成并写入加密的 `vault_managed.yml`。
-该首次部署还会创建一个 `admin` service user、为它签发 Personal Access Token，
-存入 `vault_admin_service_user_access_token`（供 tenant 阶段使用），然后删除一次性的
-owner token。不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建（该页仅在实例无任何
-账号时可用；只填密码而不填 email 不会生效，只会打印警告）。
+填了 `owner_email` 时会通过 `/api/setup` 自动创建首个 owner；`owner_password` 留空则
+由角色生成并写入加密的 `vault_managed.yml`。同一次部署还会创建 `admin` service user
+并签发其 PAT，存入 `vault_admin_service_user_access_token`（供 tenant 阶段使用），
+然后删除一次性的 owner token。不填 email 时，浏览器打开 `https://<域名>/setup` 手动创建
+（该页仅在实例无任何账号时可用）。
 
 Tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、
 `netbird_owner`，可用 `make ans-tags TAGS=netbird_config` 单独执行。
 
-## 关于 IdP（常见问题）
+## 关于 IdP
 
-**官方一键脚本默认装 Zitadel 吗？** 不再装了。NetBird 0.62 起，服务端内置 **Dex**
-做本地用户管理，Zitadel 只是旧版 quickstart 的历史默认项。本项目与官方现状一致，
-**默认本地用户**。
-
-**能自定义其他 IdP（如 Authentik）吗？** 可以。任何 **OIDC 兼容**的 IdP 都能作为
-*外部* IdP 接入（Google / Entra / Okta / Zitadel / Keycloak / **Authentik** /
-Pocket ID，或通用 OIDC），且能与本地用户并存：Dashboard → **Settings → Identity
-Providers**，或 `POST /api/identity-providers`。这是运行时的租户配置，不属于服务端
-部署 role。
+默认使用服务端内置的 **Dex** IdP（NetBird ≥ 0.62），由 Dashboard 直接管理本地用户。
+任何 **OIDC 兼容**的外部 IdP（Google / Entra / Okta / Keycloak / Zitadel /
+**Authentik** / Pocket ID / 通用 OIDC）都可与本地用户并存：Dashboard →
+**Settings → Identity Providers**，或 `POST /api/identity-providers`。这属于运行时的
+租户配置，不属于服务端部署 role。
 
 **已有自托管 Authentik 能直接用吗？** 可以。在 Authentik 建 **confidential
-OAuth2/OpenID** provider → 把 NetBird 的 redirect URL 填进去 → 在 NetBird 加
-*Generic OIDC*，issuer 用 `https://authentik.example.com/application/o/netbird/`。
-面向**远程公网用户**时注意：
+OAuth2/OpenID** provider → 填入 NetBird 的 redirect URL → 在 NetBird 加 *Generic
+OIDC*，issuer 用 `https://authentik.example.com/application/o/netbird/`。面向**远程
+公网用户**时注意：
 
 - 用户浏览器**和** NetBird 服务端都要能访问该 issuer（discovery、JWKS、token，以及
   登录/同意页面），且证书必须是有效的公网 TLS。
@@ -88,11 +81,6 @@ OAuth2/OpenID** provider → 把 NetBird 的 redirect URL 填进去 → 在 NetB
   服务端都会被拒——需先公开 OIDC/登录路径，或把相关来源 IP 加白名单。
 - 组同步：Authentik 的 `profile` scope 自带 `groups`，在 NetBird 开启 *JWT group
   sync* 用 `groups` claim 即可（Zitadel 用的是 *roles*，还需写 Action 转成扁平数组）。
-
-**官方文档里的 Ansible 是管 server 还是 client？** 两者都不是纯「部署」。它指的是
-`community.ansible_netbird` collection，对**已存在 tenant 的 REST API**做声明式配置
-（users/groups/setup keys/policies/networks/DNS/IdP）——**不装 client，也不装
-server**。它属于服务端侧的「配置即代码」，本项目已接入（见下节）。
 
 ## 租户 / ACL 配置即代码（community.ansible_netbird）
 
@@ -127,11 +115,10 @@ Team → Service Users 建 `admin` service user 及其 access token）。
 `*` = 声明可代码化，但一次性密钥不可复现，需另存密码管理器。
 
 部分选项需要服务器之外的额外基础设施（未设置的选项会被跳过）：
-- `netbird_an_settings` 要求账号的 agent-network 已先 bootstrap（服务器需要
-  `proxy_address` 或 `endpoint`）；collection 的 configure 角色不会传这两个参数，
-  因此全新账号会报 "Agent-network settings have not been bootstrapped"——请先在
-  带外完成 bootstrap，或保持该项未设置。`netbird_an_providers` 需真实上游凭据
-  （创建时校验）；`netbird_an_policies` 需至少一个 provider。
+- `netbird_an_settings` 要求账号的 agent-network 已先 bootstrap（collection 的
+  configure 角色不会传 `proxy_address`/`endpoint`），全新账号会报
+  "Agent-network settings have not been bootstrapped"；请带外 bootstrap 或保持未设。
+  `netbird_an_providers` 需真实上游凭据；`netbird_an_policies` 需至少一个 provider。
 - `netbird_networks.routers` 需已入网的 peer；`netbird_services` /
   `netbird_service_domains` 需已注册的 proxy cluster。
 
@@ -142,9 +129,11 @@ make netbird-backup                              # -> backup/<host>/<stamp>/
 make netbird-restore FROM=backup/<host>/<stamp>  # 成对恢复
 ```
 
-备份会停容器做一致的 SQLite 快照、打包 `netbird_data` 卷，并把
-`vault_managed.yml`（加密密钥）一并存放。**数据与密钥必须来自同一份备份**，否则
-加密字段解不开。`backup/` 已 gitignore；请另存异地副本。
+备份会停容器做一致的 SQLite 快照，把 `netbird_data` 卷打包到
+`backup/<host>/<stamp>/`。加密密钥**不**在归档里：它在控制端的
+`inventory/host_vars/<host>/vault_managed.yml`，需另行备份。恢复时 `config.yaml` 由
+该文件重新渲染，因此它必须与归档数据来自同一时刻的同一密钥，否则数据无法解密。
+`backup/` 已 gitignore；请另存异地副本。
 
 ## 区域受限主机的镜像源（可选）
 

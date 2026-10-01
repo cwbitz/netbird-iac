@@ -1,9 +1,9 @@
 # ==============================================================================
 # NetBird self-hosted IaC - Makefile wrapper
 # ==============================================================================
-# Thin, well-known entry points around ansible-playbook / ansible-lint. Run
-# `make help` for the grouped target list. TAGS=... narrows a run to a tag,
-# HOST=... targets a single host.
+# Entry points around ansible-playbook / ansible-lint. Run `make help` for the
+# target list. Override HOST=... (single host), TAGS=... (focused run),
+# FROM=... (restore source).
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help

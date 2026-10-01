@@ -1,12 +1,9 @@
 ---
 # ==============================================================================
-# Shared control-node prerequisite checks (roles/helpers/tasks/control_node_prereqs.yml)
+# Control-node prerequisite checks (roles/helpers/tasks/control_node_prereqs.yml)
 #
-# Include this file from any component that must verify tooling on the Ansible
-# control node before proceeding. All control-node pre-steps belong here so they
-# are checked consistently.
-#
-# Optional parameter: vault_secrets_component (used in failure messages).
+# Include from any component that must verify control-node tooling first.
+# Parameter: vault_secrets_component (used in failure messages).
 # ==============================================================================
 
 - name: "[ControlNode] Check openssl availability on the control node"

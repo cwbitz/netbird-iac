@@ -3,13 +3,12 @@
 # Install Docker Engine + the Compose v2 plugin when missing
 # (roles/helpers/tasks/install_docker.yml)
 #
-# Idempotent: a no-op when `docker compose version` already succeeds. Otherwise
-# installs Docker CE from the official Docker apt repository (Debian-family).
-# No-op-safe to include from several components.
+# No-op when `docker compose version` already succeeds; otherwise installs Docker
+# CE from Docker's official apt repository (Debian-family). Safe to include from
+# several components.
 #
-# Optional parameter (via include vars):
-#   install_docker  bool, default true. When false, a missing Docker is fatal
-#                   with install guidance instead of being installed.
+# Parameter (via include vars):
+#   install_docker  bool, default true. When false, missing Docker is fatal.
 # ==============================================================================
 
 - name: "[Docker] Detect Docker Engine + the Compose v2 plugin"

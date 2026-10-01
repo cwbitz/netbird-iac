@@ -1,11 +1,11 @@
 # netbird-iac
 
-Ansible IaC that deploys the **self-hosted NetBird server** onto a public
-Debian-family VPS: the combined `Management + Signal + Relay + STUN` container,
-the NetBird dashboard, and a built-in Traefik reverse proxy that issues Let's
-Encrypt certificates automatically. It reproduces the layout of the official
-[`getting-started.sh`](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
-quickstart, but idempotently and version-controlled.
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+Ansible IaC that idempotently deploys the **self-hosted NetBird server** onto a
+public Debian-family VPS: the combined `Management + Signal + Relay + STUN`
+container, the NetBird dashboard, and a built-in Traefik reverse proxy that
+issues Let's Encrypt certificates automatically.
 
 ## What it deploys
 
@@ -69,65 +69,53 @@ make host-bootstrap
 
 `make host-bootstrap` probes `ansible → admin → root` and uses the first that
 works; when it is not `ansible` it creates the account. It also ensures Docker
-Engine + Compose v2 are present (installing Docker CE when missing). For each
-identity whose `vault_<id>_ssh_pubkey_file` is set, the public key at that path
-is authorized for the matching account (`ansible`, `admin` or `root`); an unset
-path is ignored (keys are never generated). For `ansible`, when no public key is
-given a password is set instead (generated into the encrypted vault). When the
-`admin` identity is configured (a password and/or public key), the account is
-created if absent, its password is set and its key authorized. The matching
-private key path is `vault_<id>_ssh_privkey_file` (set explicitly next to the
-public key path; only paths are accepted, never raw key strings). It is also
-where region mirrors are configured (see below).
+Engine + Compose v2 (installing Docker CE when missing) and applies the mirrors
+below. Each configured `vault_<id>_ssh_pubkey_file` is authorized for its account
+(`ansible`, `admin` or `root`); unset is ignored. For `ansible`, no public key
+means a password is set instead (generated into the encrypted vault). When the
+`admin` identity is configured, its account is created/updated too. Private key
+paths are set in `vault_<id>_ssh_privkey_file` (paths only, never raw keys).
 
-When `owner_email` is set in the vault, the play creates the first owner
-automatically through `/api/setup`; if `owner_password` is empty, one is
-generated into the encrypted `vault_managed.yml`. On that first setup the play
-also creates an `admin` service user, mints a Personal Access Token for it,
-stores it as `vault_admin_service_user_access_token` (used by the tenant phase),
-and deletes the one-time owner token again. With no email, open
-`https://<domain>/setup` in a browser and create the owner there — that page only
-works while the instance has no accounts (a password set without an email is
-ignored and logs a warning).
+With `owner_email` set, the first owner is created automatically via `/api/setup`
+(if `owner_password` is empty, one is generated into `vault_managed.yml`). The
+same run creates an `admin` service user and a PAT for it, stored as
+`vault_admin_service_user_access_token` for the tenant phase, then deletes the
+one-time owner token. With no email, onboard at `https://<domain>/setup` — that
+page works only while the instance has no accounts.
 
 Tags: `netbird`, `netbird_preflight`, `netbird_config`, `netbird_deploy`,
 `netbird_owner`. Use `make ans-tags TAGS=netbird_config`.
 
 ## Identity providers (IdP)
 
-The quickstart script **no longer installs Zitadel**. Since NetBird 0.62 the
-server ships an **embedded Dex** IdP, and the dashboard manages local users
-directly. This project mirrors that behaviour: **local users are the default**.
-
-Any **OIDC-compliant** provider can additionally be attached as an *external*
-IdP — Google, Microsoft Entra, Okta, Zitadel, Keycloak, **Authentik**, Pocket ID,
-or a generic OIDC provider. Add it in **Settings → Identity Providers** (or via
-`POST /api/identity-providers`); multiple providers can run alongside local
-users. This is intentionally a **runtime/tenant configuration step**, not part
-of the server-deploy role.
+Local users are the default, backed by the **embedded Dex** IdP the server ships
+(NetBird ≥ 0.62); the dashboard manages them directly. External **OIDC** providers
+— Google, Microsoft Entra, Okta, Keycloak, Zitadel, **Authentik**, Pocket ID or a
+generic OIDC provider — can run alongside local users. Add them in
+**Settings → Identity Providers** (or via `POST /api/identity-providers`); this
+is runtime tenant config, not part of the server-deploy role.
 
 ### Using an existing self-hosted Authentik
 
-Yes, Authentik works. Register a **confidential OAuth2/OpenID** provider in
-Authentik, copy the NetBird redirect URL into it, then add a *Generic OIDC* IdP
-in NetBird with the issuer `https://authentik.example.com/application/o/netbird/`.
-Caveats for a **remote-access** deployment:
+Register a **confidential OAuth2/OpenID** provider in Authentik, put the NetBird
+redirect URL in it, then add a *Generic OIDC* IdP in NetBird with issuer
+`https://authentik.example.com/application/o/netbird/`. For a **remote-access**
+deployment:
 
-- Both the user's browser **and** the NetBird server must be able to reach the
-  Authentik issuer URL (discovery, JWKS, token, and the login/consent pages),
-  over a **valid public TLS** certificate.
-- If Authentik sits behind an IP allowlist that only permits LAN/CGNAT sources,
-  public browsers and the public NetBird server will be rejected. Expose the
-  OIDC/login paths publicly or allowlist the required source IPs first.
+- Both the user's browser **and** the NetBird server must reach the issuer
+  (discovery, JWKS, token, and the login/consent pages) over valid public TLS.
+- If Authentik is behind an IP allowlist limited to LAN/CGNAT sources, public
+  browsers and the server are rejected; expose the OIDC/login paths or allowlist
+  the required source IPs.
 - JWT group sync: Authentik's `profile` scope includes `groups`; enable *JWT
-  group sync* in NetBird and use the `groups` claim. (Zitadel instead exposes
-  *roles* and needs an Action to flatten them into a flat `groups` array.)
+  group sync* in NetBird and use the `groups` claim. (Zitadel exposes *roles* and
+  needs an Action to flatten them.)
 
 ## Managing tenants/ACLs with Ansible (config-as-code)
 
 The `community.ansible_netbird` collection manages **tenant resources** against
-the running server's REST API. This repo keeps the desired state as per-host
-Ansible variables (`inventory/host_vars/<host>/main.yml` for non-secret values,
+the running server's REST API. Desired state lives in the per-host Ansible
+variables (`inventory/host_vars/<host>/main.yml` for non-secret values,
 `vault.yml` for secrets/PII) using the collection's native variable names; the
 play renders them into a generated, gitignored directory
 (`.ansible_cache/tenant_config/<host>/`) and applies them declaratively, with
@@ -158,15 +146,13 @@ Team → Service Users). What you can and cannot codify:
 `*` = the *declaration* is code, but a one-time secret is not reproducible; store
 it in a secret manager.
 
-Some options need infrastructure beyond the server (unset ones are simply
-skipped):
-- `netbird_an_settings` needs the account's agent-network to be bootstrapped
-  first (the collection role never passes `proxy_address`/`endpoint`, so on a
-  fresh account it fails with "Agent-network settings have not been
-  bootstrapped"; bootstrap it once out-of-band or leave it unset).
-  `netbird_an_providers` needs a real upstream credential (validated at creation
-  time); `netbird_an_policies` needs at least one provider.
-- `netbird_networks.routers` needs an enrolled peer, and `netbird_services` /
+Some options need infrastructure beyond the server (unset ones are skipped):
+- `netbird_an_settings` needs the account's agent-network bootstrapped first (the
+  collection role never passes `proxy_address`/`endpoint`), so it fails on a
+  fresh account; bootstrap once out-of-band or leave it unset.
+  `netbird_an_providers` needs a real upstream credential; `netbird_an_policies`
+  needs a provider.
+- `netbird_networks.routers` needs an enrolled peer; `netbird_services` /
   `netbird_service_domains` need a registered proxy cluster.
 
 ## Backup & restore
@@ -176,10 +162,13 @@ make netbird-backup                              # -> backup/<host>/<stamp>/
 make netbird-restore FROM=backup/<host>/<stamp>  # paired restore
 ```
 
-The backup stops the container for a consistent SQLite copy, archives the
-`netbird_data` volume, and saves `vault_managed.yml` (the encryption key)
-alongside it. **Data and key must come from the same backup** or encrypted fields
-cannot be decrypted. `backup/` is gitignored; keep a copy off-host.
+The backup stops the container for a consistent SQLite copy and archives the
+`netbird_data` volume to `backup/<host>/<stamp>/`. The encryption key is **not**
+in the archive: it lives in the control node's
+`inventory/host_vars/<host>/vault_managed.yml`, which you must back up
+separately. Restore re-renders `config.yaml` from that file, so it must hold the
+**same** datastore key as when the data was archived, or the data cannot be
+decrypted. `backup/` is gitignored; keep a copy off-host.
 
 ## Mirrors for region-restricted hosts (optional)
 
@@ -207,11 +196,10 @@ roles/helpers/       # shared vault-secret provisioning
 ## Secrets
 
 Never commit vaults. User secrets live in the encrypted
-`inventory/host_vars/<host>/vault.yml`; the role generates the crypto material
-into the encrypted `vault_managed.yml` on first deploy (values are preserved
-on later runs). **Back up `vault_managed.yml`** — losing
-`vault_datastore_encryption_key` makes encrypted user data
-unrecoverable.
+`inventory/host_vars/<host>/vault.yml`; the role generates crypto material into
+the encrypted `vault_managed.yml` on first deploy (values are preserved on later
+runs). **Back up `vault_managed.yml`** — losing
+`vault_datastore_encryption_key` makes encrypted user data unrecoverable.
 
 ## License
 

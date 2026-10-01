@@ -1,13 +1,14 @@
 ---
 # ==============================================================================
-# Restore the NetBird server state from a backup produced by playbooks/backup.yml.
+# Restore the NetBird server state from a backup made by playbooks/backup.yml.
 #
 #   make netbird-restore FROM=backup/<host>/<timestamp>
 #
-# It (1) restores the generated vault (encryption key) so config.yaml is
-# re-rendered with the SAME datastore encryptionKey, (2) replaces the data volume
-# with the archived contents, then (3) redeploys the stack. Data and key MUST
-# come from the same backup or the encrypted fields cannot be decrypted.
+# Replaces the data volume with the archived contents, then redeploys the stack.
+# config.yaml is re-rendered from the control node's existing
+# inventory/host_vars/<host>/vault_managed.yml, so that file must hold the SAME
+# datastore encryptionKey as when the data was backed up; otherwise the restored
+# data cannot be decrypted.
 # ==============================================================================
 
 - name: Restore the NetBird server state
@@ -66,7 +67,7 @@
         path: /tmp/netbird_data.tgz
         state: absent
 
-    - name: "[Restore] Re-render config with the restored key and start the stack"
+    - name: "[Restore] Redeploy the stack with the current vault key"
       ansible.builtin.include_role:
         name: netbird_server
 

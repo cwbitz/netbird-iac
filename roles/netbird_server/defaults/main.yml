@@ -2,8 +2,8 @@
 # ==============================================================================
 # Role defaults (roles/netbird_server/defaults/main.yml)
 # ==============================================================================
-# Every container tag is rendered through the *_version vars below so Renovate
-# can keep them current (see the # renovate: annotation above each var).
+# Container tags are pinned here and kept current by Renovate (see the
+# "# renovate:" annotation above each var).
 
 # --- Container images --------------------------------------------------------
 server_image: "netbirdio/netbird-server"
@@ -11,8 +11,8 @@ server_image: "netbirdio/netbird-server"
 server_version: "0.79.0"
 
 dashboard_image: "netbirdio/dashboard"
-# Upstream publishes the dashboard only as moving tags (latest / sha-* / pr-*),
-# so there is no immutable version to pin. Renovate cannot help here.
+# Upstream only ships moving dashboard tags (latest / sha-* / pr-*), so there is
+# no immutable version to pin; Renovate cannot track it.
 dashboard_version: "latest"
 
 traefik_image: "traefik"
@@ -26,8 +26,7 @@ network_gateway: "172.30.0.1"
 traefik_ip: "172.30.0.10"
 
 # --- Volumes -----------------------------------------------------------------
-# Explicit names so the data volume is stable regardless of the compose project
-# directory (docker compose would otherwise prefix it with the project name).
+# Explicit names keep the volumes stable regardless of the compose project dir.
 netbird_data_volume: "netbird_data"
 netbird_traefik_certs_volume: "netbird_traefik_letsencrypt"
 
@@ -39,19 +38,16 @@ stun_port: 3478
 # --- Server behaviour --------------------------------------------------------
 log_level: "info"
 
-# Skip the GeoLite2 database download at startup. The download requires outbound
-# access to pkgs.netbird.io and blocks server startup until it finishes; set
-# true on air-gapped / network-restricted hosts (disables geo-based posture
-# checks). Upstream default is false.
+# Skip the GeoLite2 database download at startup. The download needs outbound
+# access to pkgs.netbird.io and blocks startup until it finishes; set true on
+# air-gapped/network-restricted hosts (disables geo-based posture checks).
 disable_geolite_update: false
 
-# Extra management addresses trusted to speak for the reverse proxy (external
-# proxy setups). Empty for the built-in Traefik (which is covered by
-# traefik_ip). Example: ["203.0.113.20/32"].
+# Extra management addresses trusted as a reverse proxy (external proxy setups).
+# The built-in Traefik is covered by traefik_ip. Example: ["203.0.113.20/32"].
 trusted_peers: []
 
-# Expiration (days) of the Personal Access Token issued to the 'admin' service
-# user during the first-owner bootstrap. NetBird caps PATs at 365 days and they
-# cannot be renewed once invalid; when it expires, recreate it from the Dashboard
-# (the tenant run fails with instructions) — see AGENTS.md.
+# Lifetime (days) of the 'admin' service-user PAT minted by the first-owner
+# bootstrap. NetBird caps PATs at 365 days; recreate it from the Dashboard when
+# it expires (the tenant run reports it).
 admin_service_user_access_token_expire_in: 365
