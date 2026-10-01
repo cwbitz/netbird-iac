@@ -10,7 +10,7 @@
 - 公网域名的 A 记录指向该主机，且 **TCP 80/443**、**UDP 3478** 已放行——首次部署
   **前**确认。
 - 控制端：ansible-core（固定版本）、Python 3、`openssl`，以及 Galaxy collections：
-  `make ans-deps`。
+  `make install`。
 - 主机条目：`make host-init HOST=<hostname>`，然后编辑 `inventory/hosts.yml`、
   `inventory/host_vars/<host>/main.yml`（域名、ACME 邮箱）、
   `inventory/host_vars/<host>/vault.yml`（IP、SSH 凭据、owner），并加密 vault：
@@ -23,13 +23,13 @@
 ## 1. 部署
 
 ```bash
-make ans-lint      # 语法检查 + ansible-lint
-make ans-check     # 干跑（--check --diff）
-make ans-site      # 部署（可加 TAGS=... 做定向执行）
+make lint      # 语法检查 + ansible-lint
+make dry-run     # 干跑（--check --diff）
+make deploy      # 部署（可加 TAGS=... 做定向执行）
 ```
 
 定向 tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、
-`netbird_owner`（`make ans-tags TAGS=<tag>`）。
+`netbird_owner`（`make deploy TAGS=<tag>`）。
 
 部署会校验输入与非 root 账号、把缺失的密钥生成进 `vault_managed.yml`、把
 `config.yaml` / `dashboard.env` / `docker-compose.yml` 渲染到 `{{ stack_dir }}`
@@ -38,13 +38,13 @@ make ans-site      # 部署（可加 TAGS=... 做定向执行）
 验证：
 
 ```bash
-make ans-ping
+make ping
 curl -fsS https://<域名>/oauth2/.well-known/openid-configuration >/dev/null && echo ok
 ssh <host> 'cd /opt/netbird && docker compose ps'
 ```
 
 **首次部署 / GeoLite2**：服务端会阻塞启动直到从 `pkgs.netbird.io` 下载完 GeoLite2
-数据库。若就绪检查超时，重跑 `make ans-site`（数据库会保留），或预置数据库到数据卷并设
+数据库。若就绪检查超时，重跑 `make deploy`（数据库会保留），或预置数据库到数据卷并设
 `disable_geolite_update: true`。
 
 ## 2. 首个 owner 与访问令牌
@@ -61,7 +61,7 @@ ssh <host> 'cd /opt/netbird && docker compose ps'
 ## 3. 日常变更（服务端）
 
 - 编辑 `inventory/host_vars/<host>/main.yml`（非机密）或 vault（机密），然后
-  `make ans-site`。配置模板会触发重启 handler，因此配置变更会重启容器栈。
+  `make deploy`。配置模板会触发重启 handler，因此配置变更会重启容器栈。
 - 镜像版本在 `roles/netbird_server/defaults/main.yml`（由 Renovate 跟踪）；dashboard
   跟随 `latest`。
 - 切勿编辑主机上 `{{ stack_dir }}` 下渲染出的文件——渲染才是唯一事实来源。
@@ -69,9 +69,9 @@ ssh <host> 'cd /opt/netbird && docker compose ps'
 ## 4. 租户配置即代码
 
 ```bash
-make netbird-plan          # 只读 diff（安全默认）
-make netbird-apply         # 应用期望状态
-make netbird-apply-strict  # 应用 + 删除未纳管资源
+make plan          # 只读 diff（安全默认）
+make apply         # 应用期望状态
+make apply-strict  # 应用 + 删除未纳管资源
 ```
 
 期望状态用 collection 原生变量写在 `inventory/host_vars/<host>/main.yml`（机密/PII 放
@@ -81,23 +81,23 @@ make netbird-apply-strict  # 应用 + 删除未纳管资源
 
 路由网络与出口节点的执行顺序：
 
-1. `make netbird-apply` —— 创建并持久化 setup key；
+1. `make apply` —— 创建并持久化 setup key；
 2. 让客户端入网（消费该 setup key）；
-3. 重跑 `make netbird-apply` 激活网关 peer 已入网的网络。
+3. 重跑 `make apply` 激活网关 peer 已入网的网络。
 
 ## 5. 备份与恢复
 
 ```bash
-make netbird-backup                              # -> backup/<host>/<stamp>/
-make netbird-restore FROM=backup/<host>/<stamp>
+make backup                              # -> backup/<host>/<stamp>/
+make restore FROM=backup/<host>/<stamp>
 ```
 
-- `netbird-backup` 会停容器、打包 `netbird_data` 数据卷（`netbird_data.tgz`）、再启动
+- `backup` 会停容器、打包 `netbird_data` 数据卷（`netbird_data.tgz`）、再启动
   容器。归档含用户 PII 与哈希后的凭据。
 - 加密密钥**不**在归档里。它在控制端的
   `inventory/host_vars/<host>/vault_managed.yml`——请**另行备份并妥善保护**。丢失
   `vault_datastore_encryption_key` 会导致归档数据不可恢复。
-- `netbird-restore` 会替换数据卷再重新部署。`config.yaml` 由控制端当前的
+- `restore` 会替换数据卷再重新部署。`config.yaml` 由控制端当前的
   `vault_managed.yml` 重新渲染，因此该文件必须与归档数据来自同一时刻的同一密钥。
 
 恢复后验证：OIDC discovery 地址可访问且用户能登录。
@@ -105,10 +105,10 @@ make netbird-restore FROM=backup/<host>/<stamp>
 ## 6. 升级与回滚
 
 - **升级**：让 Renovate 更新固定 tag（或手动改
-  `roles/netbird_server/defaults/main.yml`），再 `make ans-site`。
-- **版本回滚**：把 tag 改回上一版本，重跑 `make ans-site`。
+  `roles/netbird_server/defaults/main.yml`），再 `make deploy`。
+- **版本回滚**：把 tag 改回上一版本，重跑 `make deploy`。
 - **整体回滚**：从匹配的备份恢复（数据**和**同一份 `vault_managed.yml`）。
-- **配置回滚**：`git revert` 或改回 per-host 变量，再 `make ans-site`。
+- **配置回滚**：`git revert` 或改回 per-host 变量，再 `make deploy`。
 
 ## 7. 故障排查
 
@@ -125,7 +125,7 @@ make netbird-restore FROM=backup/<host>/<stamp>
 常用命令：
 
 ```bash
-make ans-vars HOST=<host>                          # 含解密 vault 的解析变量
+make print [HOST=<host>]                        # 含解密 vault 的解析变量（单主机时 HOST 可省略）
 ssh <host> 'cd /opt/netbird && docker compose logs -f netbird-server'
 ssh <host> 'cd /opt/netbird && docker compose ps'
 ```

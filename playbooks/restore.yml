@@ -2,7 +2,7 @@
 # ==============================================================================
 # Restore the NetBird server state from a backup made by playbooks/backup.yml.
 #
-#   make netbird-restore FROM=backup/<host>/<timestamp>
+#   make restore FROM=backup/<host>/<timestamp>
 #
 # Replaces the data volume with the archived contents, then redeploys the stack.
 # config.yaml is re-rendered from the control node's existing
@@ -22,7 +22,7 @@
       ansible.builtin.assert:
         that:
           - restore_from | length > 0
-        fail_msg: "Usage: make netbird-restore FROM=backup/<host>/<timestamp>"
+        fail_msg: "Usage: make restore FROM=backup/<host>/<timestamp>"
 
     - name: "[Restore] Resolve the backup path to an absolute path"
       ansible.builtin.set_fact:

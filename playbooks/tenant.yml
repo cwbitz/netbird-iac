@@ -11,9 +11,9 @@
 #     -> .ansible_cache/tenant_config/<host>/  ->  NetBird API
 #
 # Preview by default; nothing changes unless tenant_commit=true:
-#   make netbird-plan          # read-only diff
-#   make netbird-apply         # apply
-#   make netbird-apply-strict  # apply + remove unmanaged resources
+#   make plan          # read-only diff
+#   make apply         # apply
+#   make apply-strict  # apply + remove unmanaged resources
 #
 # Requires vault_admin_service_user_access_token (created by the first-owner
 # bootstrap, or set in vault.yml).

@@ -29,36 +29,26 @@ help: ## Show grouped targets and overridable variables
 		$(MAKEFILE_LIST)
 	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
 	@printf '  \033[36m%-23s\033[0m %s\n' \
-		'HOST'      'target host for host-init/ans-vars, e.g. HOST=<hostname>' \
-		'TAGS'      'focused tags for ans-check/ans-site/ans-tags, e.g. TAGS=netbird' \
-		'FROM'      'backup stamp for netbird-restore, e.g. FROM=backup/<host>/<stamp>' \
-		'PLAYBOOK'  'playbook for ans-check/ans-site (default: playbooks/site.yml)' \
+		'HOST'      'target host for host-init; optional for print, e.g. HOST=<hostname>' \
+		'TAGS'      'focused tags for dry-run/deploy, e.g. TAGS=netbird' \
+		'FROM'      'backup stamp for restore, e.g. FROM=backup/<host>/<stamp>' \
+		'PLAYBOOK'  'playbook for dry-run/deploy (default: playbooks/site.yml)' \
 		'INVENTORY' 'inventory file (default: inventory/hosts.yml)'
 	@printf '\n'
 
-.PHONY: history
-history: ## Show the last 10 commits
-	@git log --oneline -10
-
 ##@ Dependencies
 
-.PHONY: ans-deps-tools
-ans-deps-tools: ## Install the pinned toolchain via mise/asdf (.tool-versions)
+.PHONY: install
+install: ## Install the pinned toolchain + Galaxy collections
 	@if command -v mise >/dev/null 2>&1; then mise install; \
 	elif command -v asdf >/dev/null 2>&1; then asdf install; \
 	else echo "Neither mise nor asdf found; install one, or ensure ansible-core 2.19.x is on PATH." >&2; exit 1; fi
-
-.PHONY: ans-deps
-ans-deps: ans-deps-tools gal-deps ## Install the pinned toolchain + Galaxy collections
-
-.PHONY: gal-deps
-gal-deps: ## Install Galaxy collections from requirements.yml
 	ansible-galaxy install -r requirements.yml
 
 ##@ Vault
 
-.PHONY: ans-vault-init
-ans-vault-init: ## Create the Ansible Vault password file (if missing)
+.PHONY: vault-init
+vault-init: ## Create the Ansible Vault password file (if missing)
 	@mkdir -p "$(VAULT_PW_DIR)"
 	@if [ ! -f "$(VAULT_PW_FILE)" ]; then \
 		umask 077; openssl rand -base64 32 > "$(VAULT_PW_FILE)"; \
@@ -77,13 +67,13 @@ host-init: ## Scaffold host_vars/<HOST> from the example/ template
 	@echo "Scaffolded inventory/host_vars/$(HOST)/ (edit main.yml + vault.yml, then: ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml)"
 
 .PHONY: host-bootstrap
-host-bootstrap: ans-vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
+host-bootstrap: vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
 	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
 
-##@ Ansible
+##@ Server
 
-.PHONY: ans-lint
-ans-lint: ans-vault-init ## Playbook syntax check + ansible-lint
+.PHONY: lint
+lint: vault-init ## Playbook syntax check + ansible-lint
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/site.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/tenant.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/bootstrap.yml
@@ -91,53 +81,56 @@ ans-lint: ans-vault-init ## Playbook syntax check + ansible-lint
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/restore.yml
 	ansible-lint playbooks/site.yml playbooks/tenant.yml playbooks/bootstrap.yml playbooks/backup.yml playbooks/restore.yml
 
-.PHONY: ans-check
-ans-check: ans-vault-init ## Dry-run (--check --diff); add TAGS=...
+.PHONY: dry-run
+dry-run: vault-init ## Dry-run (--check --diff); add TAGS=...
 	$(ANSIBLE_PB) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
-.PHONY: ans-site
-ans-site: ans-vault-init ## Deploy the server (full playbook)
+.PHONY: deploy
+deploy: vault-init ## Deploy the server (full playbook)
 	$(ANSIBLE_PB) $(if $(TAGS),--tags $(TAGS),)
-
-.PHONY: ans-tags
-ans-tags: ans-vault-init ## Deploy only tasks tagged TAGS=x
-	@if [ -z "$(TAGS)" ]; then echo "Usage: make ans-tags TAGS=<tag>[,<tag>]" >&2; exit 1; fi
-	$(ANSIBLE_PB) --tags $(TAGS)
 
 ##@ Tenant (config-as-code)
 
-.PHONY: netbird-plan
-netbird-plan: ans-vault-init ## Tenant config-as-code: read-only diff (safe)
+.PHONY: plan
+plan: vault-init ## Tenant config-as-code: read-only diff (safe)
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml
 
-.PHONY: netbird-apply
-netbird-apply: ans-vault-init ## Tenant config-as-code: apply desired state
+.PHONY: apply
+apply: vault-init ## Tenant config-as-code: apply desired state
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true
 
-.PHONY: netbird-apply-strict
-netbird-apply-strict: ans-vault-init ## Apply + remove unmanaged resources
+.PHONY: apply-strict
+apply-strict: vault-init ## Apply + remove unmanaged resources
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true -e tenant_strict=true
 
 ##@ Backup
 
-.PHONY: netbird-backup
-netbird-backup: ans-vault-init ## Back up netbird_data + the encryption key
+.PHONY: backup
+backup: vault-init ## Back up the netbird_data volume (key stays in vault_managed.yml)
 	ansible-playbook -i $(INVENTORY) playbooks/backup.yml
 
-.PHONY: netbird-restore
-netbird-restore: ans-vault-init ## Restore FROM=backup/<host>/<stamp>
-	@if [ -z "$(FROM)" ]; then echo "Usage: make netbird-restore FROM=backup/<host>/<timestamp>" >&2; exit 1; fi
+.PHONY: restore
+restore: vault-init ## Restore FROM=backup/<host>/<stamp>
+	@if [ -z "$(FROM)" ]; then echo "Usage: make restore FROM=backup/<host>/<timestamp>" >&2; exit 1; fi
 	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e restore_from=$(abspath $(FROM))
 
 ##@ Operations
 
-.PHONY: ans-vars
-ans-vars: ans-vault-init ## Print resolved host vars (incl. decrypted vault); HOST=x
-	@if [ -z "$(HOST)" ]; then echo "Usage: make ans-vars HOST=<hostname>" >&2; exit 1; fi
-	ansible -i $(INVENTORY) $(HOST) -m ansible.builtin.debug -a "var=hostvars[inventory_hostname]"
+.PHONY: print
+print: vault-init ## Print resolved host vars (incl. decrypted vault); HOST optional if single-host
+	@host="$(HOST)"; \
+	if [ -z "$$host" ]; then \
+		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
+			| python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{})); print(h[0] if len(h)==1 else "")')"; \
+	fi; \
+	if [ -z "$$host" ]; then \
+		echo "Usage: make print HOST=<hostname> (required when the inventory has no single host)" >&2; exit 1; \
+	fi; \
+	echo "Resolved host: $$host"; \
+	ansible -i $(INVENTORY) "$$host" -m ansible.builtin.debug -a "var=hostvars[inventory_hostname]"
 
-.PHONY: ans-ping
-ans-ping: ans-vault-init ## Test SSH connectivity
+.PHONY: ping
+ping: vault-init ## Test SSH connectivity
 	ansible -i $(INVENTORY) netbird -m ansible.builtin.ping
 
 ##@ Housekeeping

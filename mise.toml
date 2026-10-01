@@ -5,17 +5,17 @@
 # `make ...` and `mise run ...` do the same thing.
 
 [tasks.lint]
-description = "Syntax check + ansible-lint (make ans-lint)"
-run = "make ans-lint"
+description = "Syntax check + ansible-lint (make lint)"
+run = "make lint"
 
-[tasks.deps]
-description = "Install the pinned toolchain + collections (make ans-deps)"
-run = "make ans-deps"
+[tasks.install]
+description = "Install the pinned toolchain + collections (make install)"
+run = "make install"
 
-[tasks.check]
-description = "Dry-run the site playbook (make ans-check)"
-run = "make ans-check"
+[tasks.dry-run]
+description = "Dry-run the site playbook (make dry-run)"
+run = "make dry-run"
 
 [tasks.deploy]
-description = "Deploy the NetBird self-hosted server (make ans-site)"
-run = "make ans-site"
+description = "Deploy the NetBird self-hosted server (make deploy)"
+run = "make deploy"

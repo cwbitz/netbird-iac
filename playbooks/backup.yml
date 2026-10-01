@@ -2,7 +2,7 @@
 # ==============================================================================
 # Back up the NetBird server data volume to the control node.
 #
-#   make netbird-backup            # -> backup/<host>/<timestamp>/
+#   make backup            # -> backup/<host>/<timestamp>/
 #
 # Captures netbird_data.tgz: the Docker volume (store.db / idp.db / events.db +
 # geo DBs), archived with the container STOPPED so the SQLite files are

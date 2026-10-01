@@ -82,7 +82,7 @@ owner_password: "{{ vault_owner_password | default('') }}"
 
 # --- Optional host bootstrap (make host-bootstrap) ---------------------------
 # Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
-# China-based VPS). This playbook is opt-in and NOT part of make ans-site.
+# China-based VPS). This playbook is opt-in and NOT part of make deploy.
 # Debian-family APT mirror (security mirror derived automatically; override
 # with host_apt_security_mirror if your mirror doesn't follow the pattern):
 # host_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
@@ -104,8 +104,8 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # community.ansible_netbird. Define non-secret values here, secret/PII in
 # vault.yml; the play renders them into .ansible_cache/tenant_config/<host>/.
 #
-# Preview by default: `make netbird-plan`; apply with `make netbird-apply`
-# (+ `make netbird-apply-strict` to remove unmanaged resources). Unset variables
+# Preview by default: `make plan`; apply with `make apply`
+# (+ `make apply-strict` to remove unmanaged resources). Unset variables
 # are left untouched unless strict mode removes unmanaged resources.
 #
 # --- Account settings (settings.yml) -----------------------------------------
@@ -177,7 +177,7 @@ owner_password: "{{ vault_owner_password | default('') }}"
 # netbird_dns_disabled_management_groups: []
 #
 # --- Setup keys (setup_keys.yml) ---------------------------------------------
-# The secret is returned only at creation; after `netbird-apply` it is persisted
+# The secret is returned only at creation; after `apply` it is persisted
 # to vault_managed.yml as vault_setup_key_<name> (non-alphanumerics -> '_').
 # expires_in is seconds, 1..31536000 (1 year max). A never-expiring key
 # (expires_in: 0) is not expressible here; create it once via the API instead.

@@ -39,8 +39,7 @@ issues Let's Encrypt certificates automatically.
 
 ```bash
 # 1. Toolchain + collections
-make ans-deps-tools
-make ans-deps
+make install
 
 # 2. Create a host from the committed template
 make host-init HOST=netbird-1
@@ -51,9 +50,9 @@ make host-init HOST=netbird-1
 ansible-vault encrypt inventory/host_vars/netbird-1/vault.yml
 
 # 3. Validate, dry-run, deploy
-make ans-lint
-make ans-check
-make ans-site
+make lint
+make dry-run
+make deploy
 ```
 
 Deploys run as a **non-root service account** (`playbooks/site.yml` refuses root
@@ -84,7 +83,7 @@ one-time owner token. With no email, onboard at `https://<domain>/setup` — tha
 page works only while the instance has no accounts.
 
 Tags: `netbird`, `netbird_preflight`, `netbird_config`, `netbird_deploy`,
-`netbird_owner`. Use `make ans-tags TAGS=netbird_config`.
+`netbird_owner`. Use `make deploy TAGS=netbird_config`.
 
 ## Identity providers (IdP)
 
@@ -122,9 +121,9 @@ play renders them into a generated, gitignored directory
 plain names resolved to IDs and resources applied in dependency order.
 
 ```bash
-make netbird-plan          # read-only diff (safe default)
-make netbird-apply         # apply the desired state
-make netbird-apply-strict  # apply + remove unmanaged resources
+make plan          # read-only diff (safe default)
+make apply         # apply the desired state
+make apply-strict  # apply + remove unmanaged resources
 ```
 
 Requires `vault_admin_service_user_access_token` (provisioned automatically on a
@@ -158,8 +157,8 @@ Some options need infrastructure beyond the server (unset ones are skipped):
 ## Backup & restore
 
 ```bash
-make netbird-backup                              # -> backup/<host>/<stamp>/
-make netbird-restore FROM=backup/<host>/<stamp>  # paired restore
+make backup                              # -> backup/<host>/<stamp>/
+make restore FROM=backup/<host>/<stamp>  # paired restore
 ```
 
 The backup stops the container for a consistent SQLite copy and archives the
@@ -172,7 +171,7 @@ decrypted. `backup/` is gitignored; keep a copy off-host.
 
 ## Mirrors for region-restricted hosts (optional)
 
-`make host-bootstrap` (opt-in, not part of `ans-site`) can point a host at
+`make host-bootstrap` (opt-in, not part of `deploy`) can point a host at
 alternative package mirrors — useful for China-based VPS. It is a no-op unless
 the variables are set, and touches nothing in the deploy baseline:
 

@@ -24,8 +24,7 @@
 ## 快速开始
 
 ```bash
-make ans-deps-tools          # 安装固定版本工具链
-make ans-deps                # 工具链 + Galaxy collections
+make install                # 工具链 + Galaxy collections
 
 make host-init HOST=netbird-1
 #   编辑 inventory/hosts.yml
@@ -33,7 +32,7 @@ make host-init HOST=netbird-1
 #   编辑 inventory/host_vars/netbird-1/vault.yml   （IP、SSH 凭据、owner）
 ansible-vault encrypt inventory/host_vars/netbird-1/vault.yml
 
-make ans-lint && make ans-check && make ans-site
+make lint && make dry-run && make deploy
 ```
 
 部署以**非 root 服务账号**执行（`site.yml` 默认拒绝 root，除非
@@ -60,7 +59,7 @@ CE），同时应用下方镜像源。对每个设置了 `vault_<id>_ssh_pubkey_
 （该页仅在实例无任何账号时可用）。
 
 Tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、
-`netbird_owner`，可用 `make ans-tags TAGS=netbird_config` 单独执行。
+`netbird_owner`，可用 `make deploy TAGS=netbird_config` 单独执行。
 
 ## 关于 IdP
 
@@ -91,9 +90,9 @@ collection 原生名；playbook 把它们渲染到一个 gitignore 的生成目�
 按依赖顺序应用：
 
 ```bash
-make netbird-plan          # 只读 diff（安全默认）
-make netbird-apply         # 应用期望状态
-make netbird-apply-strict  # 应用 + 删除未纳管资源
+make plan          # 只读 diff（安全默认）
+make apply         # 应用期望状态
+make apply-strict  # 应用 + 删除未纳管资源
 ```
 
 需要 `vault_admin_service_user_access_token`（全新部署会自动创建；否则在
@@ -125,8 +124,8 @@ Team → Service Users 建 `admin` service user 及其 access token）。
 ## 备份与恢复
 
 ```bash
-make netbird-backup                              # -> backup/<host>/<stamp>/
-make netbird-restore FROM=backup/<host>/<stamp>  # 成对恢复
+make backup                              # -> backup/<host>/<stamp>/
+make restore FROM=backup/<host>/<stamp>  # 成对恢复
 ```
 
 备份会停容器做一致的 SQLite 快照，把 `netbird_data` 卷打包到
@@ -137,7 +136,7 @@ make netbird-restore FROM=backup/<host>/<stamp>  # 成对恢复
 
 ## 区域受限主机的镜像源（可选）
 
-`make host-bootstrap`（可选，**不**在 `ans-site` 内）可把主机指向替代软件源——适合中国
+`make host-bootstrap`（可选，**不**在 `deploy` 内）可把主机指向替代软件源——适合中国
 VPS。变量未设置时是 no-op，且不动部署基线：
 
 ```yaml
