@@ -29,7 +29,7 @@ help: ## Show grouped targets and overridable variables
 		$(MAKEFILE_LIST)
 	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
 	@printf '  \033[36m%-23s\033[0m %s\n' \
-		'HOST'      'target host for host-init/ans-vars, e.g. HOST=nb-test' \
+		'HOST'      'target host for host-init/ans-vars, e.g. HOST=<hostname>' \
 		'TAGS'      'focused tags for ans-check/ans-site/ans-tags, e.g. TAGS=netbird' \
 		'FROM'      'backup stamp for netbird-restore, e.g. FROM=backup/<host>/<stamp>' \
 		'PLAYBOOK'  'playbook for ans-check/ans-site (default: playbooks/site.yml)' \
