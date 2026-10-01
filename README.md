@@ -191,6 +191,7 @@ playbooks/site.yml   # server preflight + netbird_server role
 playbooks/tenant.yml # tenant config-as-code (community.ansible_netbird)
 roles/netbird_server # defaults (image pins), tasks, templates/
 roles/helpers/       # shared vault-secret provisioning
+docs/RUNBOOK.md      # operations runbook (deploy, backup/restore, rollback)
 ```
 
 ## Secrets

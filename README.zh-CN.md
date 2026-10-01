@@ -155,6 +155,7 @@ playbooks/site.yml   # server preflight + netbird_server role
 playbooks/tenant.yml # 租户 config-as-code（community.ansible_netbird）
 roles/netbird_server # defaults（镜像版本）、tasks、templates/
 roles/helpers/       # 共享的 vault 密钥生成
+docs/RUNBOOK.md      # 运维手册（部署、备份恢复、回滚）
 ```
 
 ## 密钥
