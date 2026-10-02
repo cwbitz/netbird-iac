@@ -87,10 +87,9 @@
       ansible.builtin.set_fact:
         probe_chosen: "{{ netbird_target.host_ssh_identities[probe_identity | lower] }}"
 
-    - name: "[Probe] Register the target in the bootstrap group"
+    - name: "[Probe] Register the probed identity on the target host"
       ansible.builtin.add_host:
         name: "{{ groups['netbird'][0] }}"
-        groups: netbird_bootstrap
         probe_identity: "{{ probe.stdout | trim }}"
 
     - name: "[Probe] Report the working identity"
@@ -98,7 +97,11 @@
         msg: "Connected as '{{ probe_identity }}' ({{ probe_chosen.user }})."
 
 - name: Bootstrap host system tuning
-  hosts: netbird_bootstrap
+  # Target the single probed host by name (the bootstrap playbook manages one
+  # host at a time). Using the inventory host avoids a dynamic-only group that
+  # --syntax-check on a static inventory would warn about ("could not match
+  # supplied host pattern").
+  hosts: "{{ groups['netbird'][0] }}"
   gather_facts: true
   # add_host vars rank below inventory host_vars; apply the probed identity as
   # play vars so it takes effect.
@@ -358,11 +361,14 @@
 
     - name: "[Bootstrap] Resolve the passwordless-sudo accounts"
       ansible.builtin.set_fact:
+        # The `default()` guards make the template resolvable by static analysis
+        # (ansible-lint) before the earlier set_fact tasks have run; at runtime
+        # the real values are always defined.
         bootstrap_sudo_users: >-
-          {{ ([bootstrap_service_user]
-              + ([bootstrap_admin.user]
+          {{ ([bootstrap_service_user | default('ansible')]
+              + ([(bootstrap_admin | default({})).user | default('admin')]
                  if (bootstrap_admin_defined | default(false) | bool
-                     and bootstrap_admin.user | default('', true) != 'root')
+                     and (bootstrap_admin | default({})).user | default('', true) != 'root')
                  else []))
              | unique }}
 
