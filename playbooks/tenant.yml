@@ -13,7 +13,10 @@
 # Preview by default; nothing changes unless tenant_commit=true:
 #   make plan          # read-only diff
 #   make apply         # apply
-#   make apply-strict  # apply + remove unmanaged resources
+#
+# Strict mode (also remove unmanaged resources) is off by default and enabled by
+# setting `tenant_strict: true` in inventory/host_vars/<host>/main.yml (per host,
+# overridable) or passing -e tenant_strict=true.
 #
 # Requires vault_admin_service_user_access_token (created by the first-owner
 # bootstrap, or set in vault.yml).
@@ -31,7 +34,9 @@
     netbird_api_token: "{{ vault_admin_service_user_access_token | default('', true) }}"
     netbird_validate_certs: true
     tenant_commit: false
-    tenant_strict: false
+    # tenant_strict is NOT set here: it is a host-level knob (host_vars/<host>/
+    # main.yml), defaulting to false where the role uses it. Set it per host or
+    # with -e tenant_strict=true.
     # Run API modules with the control node's Python (connection is local).
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
     # Local API work only; no privilege needed.
@@ -151,7 +156,7 @@
         name: community.ansible_netbird.configure
       vars:
         commit: "{{ tenant_commit }}"
-        strict: "{{ tenant_strict }}"
+        strict: "{{ tenant_strict | default(false) }}"
 
     # --------------------------------------------------------------------------
     # A setup key's secret is returned only at creation. Persist each newly

@@ -82,8 +82,11 @@ GeoLite2 DBs from `pkgs.netbird.io`. If the readiness wait times out, re-run
 ```bash
 make plan          # read-only diff (safe default)
 make apply         # apply desired state
-make apply-strict  # apply + remove unmanaged resources
 ```
+
+Strict mode (also remove unmanaged resources) is off by default; enable it per
+host with `tenant_strict: true` in `inventory/host_vars/<host>/main.yml` (or
+`-e tenant_strict=true`).
 
 Desired state uses the collection's native variables in
 `inventory/host_vars/<host>/main.yml` (secret/PII in `vault.yml`). The play

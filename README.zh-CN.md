@@ -95,8 +95,12 @@ collection 原生名；playbook 把它们渲染到一个 gitignore 的生成目�
 ```bash
 make plan          # 只读 diff（安全默认）
 make apply         # 应用期望状态
-make apply-strict  # 应用 + 删除未纳管资源
 ```
+
+`make deploy` 在部署服务器后会一并应用租户状态；只想改租户而不动服务器时用
+`apply`；带 `TAGS=...` 时 `deploy` 仅做服务器。strict 模式（同时删除未纳管资源）
+默认关闭，可在 `inventory/host_vars/<host>/main.yml` 设 `tenant_strict: true`
+按主机开启。
 
 需要 `vault_admin_service_user_access_token`（全新部署会自动创建；否则在
 Team → Service Users 建 `admin` service user 及其 access token）。

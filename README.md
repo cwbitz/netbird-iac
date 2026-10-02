@@ -125,8 +125,13 @@ plain names resolved to IDs and resources applied in dependency order.
 ```bash
 make plan          # read-only diff (safe default)
 make apply         # apply the desired state
-make apply-strict  # apply + remove unmanaged resources
 ```
+
+`make deploy` already applies the tenant state after the server deploy; use the
+`apply` target to change tenants without touching the server, or `TAGS=...` to
+keep `deploy` server-only. Strict mode (also remove unmanaged resources) is off
+by default; enable it per host with `tenant_strict: true` in
+`inventory/host_vars/<host>/main.yml`.
 
 Requires `vault_admin_service_user_access_token` (provisioned automatically on a
 fresh deploy; otherwise create an `admin` service user + token under

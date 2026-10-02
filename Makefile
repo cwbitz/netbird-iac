@@ -182,12 +182,8 @@ plan: vault-init ## Tenant config-as-code: read-only diff (safe)
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml
 
 .PHONY: apply
-apply: vault-init ## Tenant config-as-code: apply desired state
+apply: vault-init ## Tenant config-as-code: apply desired state (strict via tenant_strict in host_vars)
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true
-
-.PHONY: apply-strict
-apply-strict: vault-init ## Apply + remove unmanaged resources
-	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true -e tenant_strict=true
 
 ##@ Backup
 

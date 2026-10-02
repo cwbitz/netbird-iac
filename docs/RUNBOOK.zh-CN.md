@@ -73,8 +73,11 @@ ssh <host> 'cd /opt/netbird && docker compose ps'
 ```bash
 make plan          # 只读 diff（安全默认）
 make apply         # 应用期望状态
-make apply-strict  # 应用 + 删除未纳管资源
 ```
+
+strict 模式（同时删除未纳管资源）默认关闭，可在
+`inventory/host_vars/<host>/main.yml` 设 `tenant_strict: true` 按主机开启（或
+`-e tenant_strict=true`）。
 
 期望状态用 collection 原生变量写在 `inventory/host_vars/<host>/main.yml`（机密/PII 放
 `vault.yml`）。playbook 会渲染出一个 gitignore 的生成目录

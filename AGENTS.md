@@ -99,9 +99,11 @@ is Debian-only.
   `netbird`, `netbird_preflight`, `netbird_config`, `netbird_deploy`,
   `netbird_owner`.
 - `make plan` — tenant config-as-code, **read-only diff** (safe default).
-- `make apply` / `make apply-strict` — apply the tenant desired
-  state (strict also removes unmanaged resources). Requires
-  `vault_admin_service_user_access_token`.
+- `make apply` — apply the tenant desired state. Requires
+  `vault_admin_service_user_access_token`. Use it to change tenants without
+  redeploying the server. Strict mode (also remove unmanaged resources) is off by
+  default and enabled per host with `tenant_strict: true` in
+  `inventory/host_vars/<host>/main.yml` (or `-e tenant_strict=true`).
 - `make backup` / `make restore FROM=backup/<host>/<stamp>` —
   stop-container snapshot of the `netbird_data` volume, and the paired restore.
   Keep `vault.yml` separately; a restore needs the same datastore key.

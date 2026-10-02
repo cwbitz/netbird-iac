@@ -104,9 +104,10 @@ owner_password: "{{ vault_owner_password | default('', true) }}"
 # community.ansible_netbird. Define non-secret values here, secret/PII in
 # vault.yml; the play renders them into .ansible_cache/tenant_config/<host>/.
 #
-# Preview by default: `make plan`; apply with `make apply`
-# (+ `make apply-strict` to remove unmanaged resources). Unset variables
-# are left untouched unless strict mode removes unmanaged resources.
+# Preview by default: `make plan`; apply with `make apply`. Strict mode (remove
+# unmanaged resources) is off unless `tenant_strict: true` is set here (per host)
+# or passed with -e. Unset variables are left untouched unless strict mode
+# removes unmanaged resources.
 #
 # --- Account settings (settings.yml) -----------------------------------------
 # Account-wide settings (API /api/accounts). Each option is shown with its
