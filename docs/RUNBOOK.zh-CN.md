@@ -59,6 +59,11 @@ ssh <host> 'cd /opt/netbird && docker compose ps'
   `vault_admin_service_user_access_token`。
 - PAT 会过期（最长 365 天）。当 tenant 运行提示 token 被拒时，在 Dashboard 重新创建并
   更新 vault。
+- **主机被重装/重镜像后**：`vault_managed.yml` 里的密钥已失效（它们只存在于旧主机）。
+  请把该文件移走备份——或直接删除——再重新部署：缺失文件会被重新生成（设置了
+  `vault_owner_email` 时，首次 owner 引导会写入新的 PAT；`make apply` 会写入新的
+  setup key）。若保留失效的非空值，则会一直沿用无效 token，tenant 每次运行都会报
+  “token rejected”。
 
 ## 3. 日常变更（服务端）
 
@@ -124,6 +129,7 @@ make restore FROM=backup/<host>/<stamp>
 | STUN / relay 客户端失败 | UDP 3478 是否放行；Traefik 是否持有 `172.30.0.10`。 |
 | 首次部署就绪检查超时 | GeoLite2 下载（见 §1）；重跑或预置数据库。 |
 | tenant 运行提示 token 被拒 | PAT 过期——为 `admin` service user 重新创建并更新 vault（§2）。 |
+| 主机被重装 / 重镜像 | `vault_managed.yml` 内是旧主机回传的失效密钥——先移走（或删除）再部署，让新的 PAT/setup key 写入（§2）。 |
 | vault 文件不可读 | 必须为 ansible-vault 加密；helper 会在下次运行时把明文文件就地重加密。 |
 
 常用命令：

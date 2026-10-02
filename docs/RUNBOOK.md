@@ -66,6 +66,12 @@ GeoLite2 DBs from `pkgs.netbird.io`. If the readiness wait times out, re-run
   set `vault_admin_service_user_access_token` in `vault.yml`.
 - PATs expire (max 365 days). When a tenant run reports the token rejected,
   recreate it in the Dashboard and update the vault.
+- **Host reinstalled/reimaged**: the secrets in `vault_managed.yml` are stale
+  (they existed only on the old server). Move the file aside — or delete it — and
+  redeploy: a missing file is regenerated (a fresh PAT via the first-owner
+  bootstrap when `vault_owner_email` is set; new setup keys via `make apply`).
+  Leaving a stale non-empty value there keeps the invalid token and every tenant
+  run fails with "token rejected".
 
 ## 3. Day-2 changes (server)
 
@@ -140,6 +146,7 @@ Verify after restore: the OIDC discovery URL answers and users can log in.
 | STUN / relay clients fail | UDP 3478 open; Traefik owns `172.30.0.10`. |
 | Readiness times out on first deploy | GeoLite2 download (§1); re-run or pre-seed the DBs. |
 | Tenant run: token rejected | PAT expired — recreate it for the `admin` service user and update the vault (§2). |
+| Host reinstalled / reimaged | `vault_managed.yml` holds stale host-returned secrets — move it aside (or delete it) before deploying so a fresh PAT/setup keys are written (§2). |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next run. |
 
 Useful commands:
