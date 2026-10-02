@@ -135,18 +135,6 @@
              | to_nice_yaml(indent=2) }}
         mode: "0600"
 
-    - name: "[Tenant] Render agent_network.yml (multiple variables per file)"
-      ansible.builtin.copy:
-        dest: "{{ tenant_build_dir }}/agent_network.yml"
-        content: >-
-          {{ { 'netbird_an_settings': netbird_an_settings | default({}),
-               'netbird_an_providers': netbird_an_providers | default([]),
-               'netbird_an_guardrails': netbird_an_guardrails | default([]),
-               'netbird_an_policies': netbird_an_policies | default([]),
-               'netbird_an_budget_rules': netbird_an_budget_rules | default([]) }
-             | to_nice_yaml(indent=2) }}
-        mode: "0600"
-
     # --------------------------------------------------------------------------
     # Apply the desired state (plain names resolved to IDs, dependency order).
     # With tenant_commit=false this only produces a read-only diff.

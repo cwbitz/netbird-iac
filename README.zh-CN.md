@@ -110,7 +110,7 @@ Team → Service Users 建 `admin` service user 及其 access token）。
 | 组、Policies(ACL)、Posture checks | 可以 | `netbird_groups`、`netbird_policies`、`netbird_posture_checks` |
 | Networks(路由器/资源)、DNS(nameservers/zones/settings) | 可以 | `netbird_networks`、`netbird_dns_*` |
 | 账户设置（Dashboard settings） | 可以 | `netbird_settings` |
-| Services / Agent Network | 可以 | `netbird_services`、`netbird_an_*` |
+| Services | 可以 | `netbird_services`、`netbird_service_domains` |
 | 用户 / 服务用户 | 可以* | 对象/角色/组可管；内置 IdP 密码是一次性 |
 | Setup keys | 可以* | `netbird_setup_keys`；有效期 1..31536000 秒（最长 1 年，无法声明永不过期）；新建密钥的明文会写入 `vault_managed.yml` 的 `vault_setup_key_<name>` |
 | 外部 IdP | 可以* | client secret 需存 vault |
@@ -120,10 +120,6 @@ Team → Service Users 建 `admin` service user 及其 access token）。
 `*` = 声明可代码化，但一次性密钥不可复现，需另存密码管理器。
 
 部分选项需要服务器之外的额外基础设施（未设置的选项会被跳过）：
-- `netbird_an_settings` 要求账号的 agent-network 已先 bootstrap（collection 的
-  configure 角色不会传 `proxy_address`/`endpoint`），全新账号会报
-  "Agent-network settings have not been bootstrapped"；请带外 bootstrap 或保持未设。
-  `netbird_an_providers` 需真实上游凭据；`netbird_an_policies` 需至少一个 provider。
 - `netbird_networks.routers` 需已入网的 peer；`netbird_services` /
   `netbird_service_domains` 需已注册的 proxy cluster。
 

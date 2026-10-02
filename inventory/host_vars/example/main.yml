@@ -202,22 +202,6 @@ owner_password: "{{ vault_owner_password | default('', true) }}"
 # netbird_services: []
 # netbird_service_domains: []
 #
-# --- Agent Network (agent_network.yml) ---------------------------------------
-# Agent Network is a separate self-hosted deployment (not the management
-# container); see https://docs.netbird.io/agent-network/quickstart. Community
-# covers providers, guardrails, policies, budget/token limits, settings, SSO/MFA
-# and logs; SCIM/IdP sync, SIEM streaming, MDM/EDR, HA and multi-tenant are
-# Enterprise.
-# netbird_an_settings needs the account's agent-network bootstrapped first (the
-# collection role does not pass proxy_address/endpoint), so it fails on a fresh
-# account; bootstrap once out-of-band or leave it unset.
-# netbird_an_providers needs a real upstream credential (validated at creation).
-# netbird_an_settings: {}
-# netbird_an_providers: []
-# netbird_an_guardrails: []
-# netbird_an_policies: []
-# netbird_an_budget_rules: []
-#
 # --- Users / service users (applied directly, not via a config file) ---------
 # Local-user passwords are generated and returned once (not persisted); prefer
 # invites, and put emails in vault.yml if they are sensitive. auto_groups take

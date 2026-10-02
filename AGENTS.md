@@ -166,12 +166,6 @@ is Debian-only.
   `inventory/group_vars/netbird/main.yml`) and applied with
   `community.docker.docker_compose_v2`. Rendering is the source of truth; never
   edit the files on the target host.
-- Tenant `netbird_an_settings` requires agent-network to be **bootstrapped**
-  first (the server needs a `proxy_address` or `endpoint`); the collection never
-  passes either, so on a fresh account it fails with "Agent-network settings have
-  not been bootstrapped" — leave it unset until bootstrapped out-of-band.
-  `netbird_an_providers` needs a real upstream credential, and
-  `netbird_an_policies` needs at least one provider.
 - `netbird_networks.routers` needs an enrolled peer, and `netbird_services` /
   `netbird_service_domains` need a registered reverse-proxy cluster, which only
   the self-hosted proxy software itself can create (BYOP); the collection can only
@@ -194,11 +188,10 @@ is Debian-only.
   routing peer. **Auto Apply** (v0.55.0+, default on) is a Dashboard/client
   setting the API/collection cannot express.
 - Edition boundaries (self-hosted): core (groups, policies, posture checks, DNS,
-  networks, setup keys, users, settings) and the Agent Network core (providers,
-  guardrails, policies, budget/token limits, SSO/MFA, usage/audit logs) are open
-  source. SCIM/IdP provisioning, audit/SIEM streaming, MDM/EDR, HA and
-  MSP/multi-tenant require an Enterprise license; Agent Network is a separate
-  self-hosted deployment (not the management container).
+  networks, setup keys, users, settings) is open source; SCIM/IdP provisioning,
+  audit/SIEM streaming, MDM/EDR, HA and MSP/multi-tenant require an Enterprise
+  license. Agent Network is a separate self-hosted deployment (not the management
+  container) and is not managed here.
 
 ## Role layout
 
@@ -228,11 +221,9 @@ is Debian-only.
   native names (`netbird_settings`, `netbird_groups`, `netbird_posture_checks`,
   `netbird_policies`, `netbird_dns_nameserver_groups`, `netbird_dns_zones`,
   `netbird_dns_disabled_management_groups`, `netbird_networks`,
-  `netbird_setup_keys`, `netbird_services` + `netbird_service_domains`,
-  `netbird_an_settings` + `netbird_an_providers` + `netbird_an_guardrails` +
-  `netbird_an_policies` + `netbird_an_budget_rules`, and `netbird_users` /
-  `netbird_service_users`). Plain names are resolved to IDs. The generated
-  directory is never hand-edited.
+  `netbird_setup_keys`, `netbird_services` + `netbird_service_domains`, and
+  `netbird_users` / `netbird_service_users`). Plain names are resolved to IDs.
+  The generated directory is never hand-edited.
 - `roles/helpers/` — a real role (no `tasks/main.yml`), always invoked via
   `include_role` + `tasks_from`:
   - `control_node_prereqs.yml` — openssl availability check.

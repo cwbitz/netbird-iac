@@ -124,8 +124,6 @@ make restore FROM=backup/<host>/<stamp>
 | STUN / relay 客户端失败 | UDP 3478 是否放行；Traefik 是否持有 `172.30.0.10`。 |
 | 首次部署就绪检查超时 | GeoLite2 下载（见 §1）；重跑或预置数据库。 |
 | tenant 运行提示 token 被拒 | PAT 过期——为 `admin` service user 重新创建并更新 vault（§2）。 |
-| 路由网络被跳过 | 网关 peer 尚未入网；让客户端入网后重跑（§4）。 |
-| "Agent-network settings have not been bootstrapped" | 先带外 bootstrap agent-network；在此之前保持 `netbird_an_settings` 未设置。 |
 | vault 文件不可读 | 必须为 ansible-vault 加密；helper 会在下次运行时把明文文件就地重加密。 |
 
 常用命令：

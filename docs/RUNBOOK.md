@@ -140,8 +140,6 @@ Verify after restore: the OIDC discovery URL answers and users can log in.
 | STUN / relay clients fail | UDP 3478 open; Traefik owns `172.30.0.10`. |
 | Readiness times out on first deploy | GeoLite2 download (§1); re-run or pre-seed the DBs. |
 | Tenant run: token rejected | PAT expired — recreate it for the `admin` service user and update the vault (§2). |
-| Routed network skipped | Gateway peer not enrolled yet; enroll the client, then re-run (§4). |
-| "Agent-network settings have not been bootstrapped" | Bootstrap agent-network out-of-band first; leave `netbird_an_settings` unset until then. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next run. |
 
 Useful commands:

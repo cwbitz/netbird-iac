@@ -142,7 +142,7 @@ Team → Service Users). What you can and cannot codify:
 | Groups, Policies (ACL), Posture checks | Yes | `netbird_groups`, `netbird_policies`, `netbird_posture_checks` |
 | Networks (routers/resources), DNS (nameservers/zones/settings) | Yes | `netbird_networks`, `netbird_dns_*` |
 | Account settings (Dashboard settings) | Yes | `netbird_settings` |
-| Services / Agent Network | Yes | `netbird_services`, `netbird_an_*` |
+| Services | Yes | `netbird_services`, `netbird_service_domains` |
 | Users / service users | Yes* | `netbird_users`, `netbird_service_users`; embedded-IdP passwords are one-time |
 | Setup keys | Yes* | `netbird_setup_keys`; expiry 1..31536000s (1 year max, never-expire not expressible); newly created secrets are persisted to `vault_managed.yml` as `vault_setup_key_<name>` |
 | Identity providers (external IdP) | Yes* | client secret must be stored in vault |
@@ -153,11 +153,6 @@ Team → Service Users). What you can and cannot codify:
 it in a secret manager.
 
 Some options need infrastructure beyond the server (unset ones are skipped):
-- `netbird_an_settings` needs the account's agent-network bootstrapped first (the
-  collection role never passes `proxy_address`/`endpoint`), so it fails on a
-  fresh account; bootstrap once out-of-band or leave it unset.
-  `netbird_an_providers` needs a real upstream credential; `netbird_an_policies`
-  needs a provider.
 - `netbird_networks.routers` needs an enrolled peer; `netbird_services` /
   `netbird_service_domains` need a registered proxy cluster.
 
