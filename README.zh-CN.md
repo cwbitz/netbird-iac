@@ -8,6 +8,17 @@
 
 ## 部署内容
 
+```
+┌───────────────────────────── public VPS ──────────────────────────────┐
+│  TCP 80/443                        UDP 3478                           │
+│     │                                   │                             │
+│  netbird-traefik ───────────────────────┼ netbird-server              │
+│  (Let's Encrypt, TLS-ALPN)              │ (Management + Signal +      │
+│     │                                   │  Relay + STUN + Dex)        │
+│  netbird-dashboard                   (STUN)                           │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
 - **内置 Dex IdP**（NetBird ≥ 0.62）：开箱即用本地用户，无需外部 IdP；外部
   OIDC 提供方可事后在 Dashboard 里追加。
 - **server 镜像已固定版本**（Renovate 跟踪）；dashboard 上游只发布滚动 tag，故跟随

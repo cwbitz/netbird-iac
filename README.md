@@ -10,13 +10,13 @@ issues Let's Encrypt certificates automatically.
 ## What it deploys
 
 ```
-┌───────────────────────────── public VPS ─────────────────────────────┐
-│  TCP 80/443                         UDP 3478                          │
-│      │                                  │                             │
-│   netbird-traefik ──────────────────────┼──── netbird-server           │
-│   (Let's Encrypt, TLS-ALPN)             │     (Management + Signal +   │
-│      │            │                     │      Relay + STUN + Dex)      │
-│  netbird-dashboard                  (STUN)                            │
+┌───────────────────────────── public VPS ──────────────────────────────┐
+│  TCP 80/443                        UDP 3478                           │
+│     │                                   │                             │
+│  netbird-traefik ───────────────────────┼ netbird-server              │
+│  (Let's Encrypt, TLS-ALPN)              │ (Management + Signal +      │
+│     │                                   │  Relay + STUN + Dex)        │
+│  netbird-dashboard                   (STUN)                           │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
