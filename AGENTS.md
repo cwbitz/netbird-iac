@@ -97,23 +97,27 @@ is Debian-only.
 - `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` and
   `inventory/host_vars/<name>/` from the committed `example/` template, and
   encrypt the scaffolded `vault.yml` (edit it with `make vault-edit`).
-- `make host-bootstrap` — **optional, opt-in** host tuning (not part of
-  `deploy`): ensures Docker Engine + Compose v2 (installing Docker CE when
-  missing), sets APT/Docker mirrors for region-restricted hosts, and creates the
-  `ansible` service account plus any configured `admin` account. The mirror parts
-  are no-ops unless their vars are set.
+- `make host-bootstrap` — host init only: ensures Docker Engine + Compose v2
+  (installing Docker CE when missing), sets APT/Docker mirrors for
+  region-restricted hosts, and probes [ansible, admin, root] to create the
+  `ansible` service account plus any configured `admin` account. Run standalone
+  to init a host without deploying; `make deploy` runs it automatically first
+  (so a fresh/rebuilt host gets its service account before `site.yml` connects).
+  The mirror parts are no-ops unless their vars are set.
 - `make lint` — `--syntax-check` + `ansible-lint`.
-- `make dry-run` / `make deploy` — dry-run / deploy. `deploy` runs the server
-  playbook and then applies the tenant state (`tenant.yml -e tenant_commit=true`);
-  add `TAGS=...` for a focused **server-only** run (skips the tenant apply). Tags:
+- `make dry-run` / `make deploy` — dry-run / deploy. `deploy` is the one-shot
+  entry point: it runs `bootstrap.yml` (host init), then the server playbook,
+  then applies the tenant state (`tenant.yml -e tenant_commit=true`); add
+  `TAGS=...` to skip the tenant apply and run only the server. Tags:
   `netbird`, `netbird_preflight`, `netbird_config`, `netbird_deploy`,
   `netbird_owner`.
 - `make plan` — tenant config-as-code, **read-only diff** (safe default).
 - `make apply` — apply the tenant desired state. Requires
   `vault_admin_service_user_access_token`. Use it to change tenants without
   redeploying the server. Strict mode (also remove unmanaged resources) is off by
-  default and enabled per host with `tenant_strict: true` in
-  `inventory/host_vars/<host>/main.yml` (or `-e tenant_strict=true`).
+  default — absent, empty, or `false` `tenant_strict` means non-strict; only
+  `tenant_strict: true` in `inventory/host_vars/<host>/main.yml` (or
+  `-e tenant_strict=true`) enables it.
 - `make backup` / `make restore FROM=backup/<host>/<stamp>` —
   stop-container snapshot of the `netbird_data` volume, and the paired restore.
   Keep `vault.yml` separately; a restore needs the same datastore key.

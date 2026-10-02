@@ -57,13 +57,18 @@ make dry-run
 make deploy
 ```
 
+`make deploy` is the one-shot entry point: it bootstraps the host, deploys the
+server, then applies the tenant state. On a fresh/rebuilt host the `ansible`
+service account does not exist yet, so `deploy` runs the same host bootstrap as
+`make host-bootstrap` first (probes `ansible → admin → root`, creates the
+account, ensures Docker). To do host init without deploying, run
+`make host-bootstrap` on its own.
+
 Deploys run as a **non-root service account** (`playbooks/site.yml` refuses root
-unless `host_allow_root_login=true`). Create it once, as root:
+unless `host_allow_root_login=true`). Bootstrap creates it; point the connection
+at it in `vault.yml`:
 
 ```bash
-# once, before the first deploy (creates the 'ansible' account + sudo):
-make host-bootstrap
-# then point the connection at it in vault.yml:
 #   vault_ansible_user: ansible
 #   vault_ansible_ssh_privkey_file: ~/.ssh/...   (or vault_ansible_password)
 ```
@@ -130,8 +135,9 @@ make apply         # apply the desired state
 `make deploy` already applies the tenant state after the server deploy; use the
 `apply` target to change tenants without touching the server, or `TAGS=...` to
 keep `deploy` server-only. Strict mode (also remove unmanaged resources) is off
-by default; enable it per host with `tenant_strict: true` in
-`inventory/host_vars/<host>/main.yml`.
+by default — an absent, empty, or `false` `tenant_strict` in
+`inventory/host_vars/<host>/main.yml` means non-strict; only `tenant_strict:
+true` (or `-e tenant_strict=true`) enables it.
 
 Requires `vault_admin_service_user_access_token` (provisioned automatically on a
 fresh deploy; otherwise create an `admin` service user + token under
@@ -173,7 +179,7 @@ decrypted. `backup/` is gitignored; keep a copy off-host.
 
 ## Mirrors for region-restricted hosts (optional)
 
-`make host-bootstrap` (opt-in, not part of `deploy`) can point a host at
+`make host-bootstrap` (also run by `make deploy`) can point a host at
 alternative package mirrors — useful for China-based VPS. It is a no-op unless
 the variables are set, and touches nothing in the deploy baseline:
 

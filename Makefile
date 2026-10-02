@@ -136,7 +136,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	@echo "Scaffolded $(INVENTORY_DIR)/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
+host-bootstrap: vault-init ## Host init only: service account, Docker, mirrors (bootstrap.yml)
 	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
 
 .PHONY: lint
@@ -153,7 +153,10 @@ dry-run: vault-init ## Dry-run (--check --diff); add TAGS=...
 	ansible-playbook -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init ## Deploy the server, then apply the tenant state (one-shot); TAGS=... runs only the server
+deploy: vault-init ## One-shot: bootstrap the host, deploy the server, then apply the tenant state; TAGS=... runs only the server
+	@echo "==> Bootstrapping the host (playbooks/bootstrap.yml: service account, Docker)..."
+	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
+	@echo "==> Deploying the NetBird server (playbooks/site.yml)..."
 	ansible-playbook -i $(INVENTORY) $(PLAYBOOK) $(if $(TAGS),--tags $(TAGS),)
 	@if [ -z "$(TAGS)" ]; then \
 		echo "==> Applying the tenant config-as-code state (playbooks/tenant.yml)..."; \
