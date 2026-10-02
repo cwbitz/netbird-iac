@@ -22,18 +22,15 @@ VAULT_PW_DIR  := $(HOME)/.config/projects/netbird-iac
 VAULT_PW_FILE := $(VAULT_PW_DIR)/ansible_vault_password
 
 # sshpass is needed ONLY for the `host-bootstrap` password probe; it is
-# auto-installed by `make check-deps` (passwordless sudo when available,
+# auto-installed by `make install` (passwordless sudo when available,
 # otherwise rootless into ~/.local/bin). Key-only bootstrap does not need it,
 # and steady-state Ansible password auth uses ssh_askpass, not sshpass.
 SSHPASS_BIN   := $(HOME)/.local/bin/sshpass
 
-##@ General
-
 .PHONY: help
-help: ## Show grouped targets and overridable variables
+help: ## Show targets and overridable variables
 	@printf '\nUsage: make <target> [VAR=value ...]\n'
 	@awk 'BEGIN {FS = ":.*?## "} \
-		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5); next } \
 		/^[a-zA-Z0-9_-]+:.*?## / { printf "  \033[36m%-23s\033[0m %s\n", $$1, $$2 }' \
 		$(MAKEFILE_LIST)
 	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
@@ -43,17 +40,12 @@ help: ## Show grouped targets and overridable variables
 		'FROM' 'backup directory for restore, e.g. FROM=backup/<host>/<stamp>'
 	@printf '\n'
 
-##@ Dependencies
-
 .PHONY: install
-install: ## Install the pinned toolchain + Galaxy collections
+install: ## Install the pinned toolchain, Galaxy collections, and sshpass
 	@if command -v mise >/dev/null 2>&1; then mise install; \
 	elif command -v asdf >/dev/null 2>&1; then asdf install; \
 	else echo "Neither mise nor asdf found; install one, or ensure ansible-core 2.19.x is on PATH." >&2; exit 1; fi
 	ansible-galaxy install -r requirements.yml
-
-.PHONY: check-deps
-check-deps: ## Ensure control-node CLI prerequisites (auto-installs sshpass)
 	@set -e; \
 	if command -v sshpass >/dev/null 2>&1 || [ -x "$(SSHPASS_BIN)" ]; then \
 		echo "sshpass: present"; \
@@ -62,27 +54,20 @@ check-deps: ## Ensure control-node CLI prerequisites (auto-installs sshpass)
 		sudo -n apt-get install -y sshpass; \
 	else \
 		echo "sshpass: installing rootless into $(dir $(SSHPASS_BIN))..."; \
-		$(MAKE) --no-print-directory install-sshpass-local; \
+		if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
+			echo "Cannot auto-install sshpass (apt-get/dpkg-deb not found)." >&2; \
+			echo "Install sshpass manually, or use key-only bootstrap credentials." >&2; \
+			exit 1; \
+		fi; \
+		tmp=$$(mktemp -d); \
+		trap 'rm -rf "$$tmp"' EXIT; \
+		cd "$$tmp"; \
+		apt-get download sshpass >/dev/null 2>&1; \
+		dpkg-deb -x sshpass_*.deb root; \
+		mkdir -p "$(dir $(SSHPASS_BIN))"; \
+		install -m 0755 root/usr/bin/sshpass "$(SSHPASS_BIN)"; \
+		echo "sshpass installed: $(SSHPASS_BIN)"; \
 	fi
-
-# (internal) install sshpass into ~/.local without root
-install-sshpass-local:
-	@set -e; \
-	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
-		echo "Cannot auto-install sshpass (apt-get/dpkg-deb not found on the control node)." >&2; \
-		echo "Install sshpass manually, or use key-only bootstrap credentials." >&2; \
-		exit 1; \
-	fi; \
-	tmp=$$(mktemp -d); \
-	trap 'rm -rf "$$tmp"' EXIT; \
-	cd "$$tmp"; \
-	apt-get download sshpass >/dev/null 2>&1; \
-	dpkg-deb -x sshpass_*.deb root; \
-	mkdir -p "$(dir $(SSHPASS_BIN))"; \
-	install -m 0755 root/usr/bin/sshpass "$(SSHPASS_BIN)"; \
-	echo "sshpass installed: $(SSHPASS_BIN)"
-
-##@ Vault
 
 .PHONY: vault-init
 vault-init: ## Create the Ansible Vault password file (if missing)
@@ -129,8 +114,6 @@ vault-edit: vault-init ## Edit vault.yml; HOST optional if single-host
 	fi; \
 	ansible-vault edit --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" "$$p"
 
-##@ Hosts
-
 .PHONY: host-init
 host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	@if [ -z "$(HOST)" ]; then echo "Usage: make host-init HOST=<hostname>" >&2; exit 1; fi
@@ -147,10 +130,8 @@ host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	@echo "Scaffolded $(INVENTORY_DIR)/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init check-deps ## Optional: host tuning + service accounts (bootstrap.yml)
+host-bootstrap: vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
 	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
-
-##@ Server
 
 .PHONY: lint
 lint: vault-init ## Playbook syntax check + ansible-lint
@@ -173,8 +154,6 @@ deploy: vault-init ## Deploy the server, then apply the tenant state (one-shot);
 		ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true; \
 	fi
 
-##@ Tenant (config-as-code)
-
 .PHONY: plan
 plan: vault-init ## Tenant config-as-code: read-only diff (safe)
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml
@@ -182,8 +161,6 @@ plan: vault-init ## Tenant config-as-code: read-only diff (safe)
 .PHONY: apply
 apply: vault-init ## Tenant config-as-code: apply desired state (strict via tenant_strict in host_vars)
 	ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true
-
-##@ Backup
 
 .PHONY: backup
 backup: vault-init ## Back up the netbird_data volume (key stays in vault_managed.yml)
@@ -195,8 +172,6 @@ restore: vault-init ## Restore FROM=backup/<host>/<stamp>
 	@restore_dir="$(abspath $(FROM))"; \
 	if [ ! -d "$$restore_dir" ]; then echo "No such backup directory: $$restore_dir" >&2; exit 1; fi; \
 	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e restore_from="$$restore_dir"
-
-##@ Operations
 
 .PHONY: print
 print: vault-init ## Print resolved host vars (incl. decrypted vault); HOST optional if single-host
@@ -210,13 +185,3 @@ print: vault-init ## Print resolved host vars (incl. decrypted vault); HOST opti
 	fi; \
 	echo "Resolved host: $$host"; \
 	ansible -i $(INVENTORY) "$$host" -m ansible.builtin.debug -a "var=hostvars[inventory_hostname]"
-
-.PHONY: ping
-ping: vault-init ## Test SSH connectivity
-	ansible -i $(INVENTORY) netbird -m ansible.builtin.ping
-
-##@ Housekeeping
-
-.PHONY: clean
-clean: ## Remove the local fact cache
-	rm -rf .ansible_cache

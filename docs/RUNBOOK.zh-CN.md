@@ -19,7 +19,7 @@
   指向它。除非 `host_allow_root_login=true`，否则部署拒绝以 root 运行。
 - vault 密码文件由 make 目标自动创建
   （`~/.config/projects/netbird-iac/ansible_vault_password`），请妥善保管。
-- `sshpass` 仅 `make host-bootstrap` 的密码探测需要；`make check-deps` 会自动安装
+- `sshpass` 仅 `make host-bootstrap` 的密码探测需要；`make install` 会自动安装
   （有免密 `apt-get` 则用 apt，否则 rootless 装到 `~/.local/bin`）。
 
 ## 1. 部署
@@ -40,7 +40,7 @@ make deploy      # 部署服务器，随后应用租户状态（TAGS=... 则仅�
 验证：
 
 ```bash
-make ping
+ansible -i inventory/hosts.yml netbird -m ansible.builtin.ping
 curl -fsS https://<域名>/oauth2/.well-known/openid-configuration >/dev/null && echo ok
 ssh <host> 'cd /opt/netbird && docker compose ps'
 ```

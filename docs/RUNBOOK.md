@@ -21,7 +21,7 @@ the overview and `AGENTS.md` for design notes and gotchas.
 - The vault password file is auto-created by the make targets
   (`~/.config/projects/netbird-iac/ansible_vault_password`); keep it safe.
 - `sshpass` is needed only by the `make host-bootstrap` password probe;
-  `make check-deps` auto-installs it (passwordless `apt-get`, else rootless
+  `make install` auto-installs it (passwordless `apt-get`, else rootless
   into `~/.local/bin`).
 
 ## 1. Deploy
@@ -45,7 +45,7 @@ waits for TLS, then optionally creates the first owner.
 Verify:
 
 ```bash
-make ping
+ansible -i inventory/hosts.yml netbird -m ansible.builtin.ping
 curl -fsS https://<domain>/oauth2/.well-known/openid-configuration >/dev/null && echo ok
 ssh <host> 'cd /opt/netbird && docker compose ps'
 ```
