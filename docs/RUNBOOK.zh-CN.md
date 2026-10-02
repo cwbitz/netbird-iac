@@ -27,7 +27,7 @@
 ```bash
 make lint      # 语法检查 + ansible-lint
 make dry-run     # 干跑（--check --diff）
-make deploy      # 部署（可加 TAGS=... 做定向执行）
+make deploy      # 部署服务器，随后应用租户状态（TAGS=... 则仅做服务器）
 ```
 
 定向 tag：`netbird`、`netbird_preflight`、`netbird_config`、`netbird_deploy`、

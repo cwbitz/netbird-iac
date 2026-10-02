@@ -93,9 +93,11 @@ is Debian-only.
   `ansible` service account plus any configured `admin` account. The mirror parts
   are no-ops unless their vars are set.
 - `make lint` — `--syntax-check` + `ansible-lint`.
-- `make dry-run` / `make deploy` — dry-run / full deploy. Add `TAGS=...` for a
-  focused run. Tags: `netbird`, `netbird_preflight`, `netbird_config`,
-  `netbird_deploy`, `netbird_owner`.
+- `make dry-run` / `make deploy` — dry-run / deploy. `deploy` runs the server
+  playbook and then applies the tenant state (`tenant.yml -e tenant_commit=true`);
+  add `TAGS=...` for a focused **server-only** run (skips the tenant apply). Tags:
+  `netbird`, `netbird_preflight`, `netbird_config`, `netbird_deploy`,
+  `netbird_owner`.
 - `make plan` — tenant config-as-code, **read-only diff** (safe default).
 - `make apply` / `make apply-strict` — apply the tenant desired
   state (strict also removes unmanaged resources). Requires

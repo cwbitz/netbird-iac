@@ -51,7 +51,7 @@ make host-init HOST=netbird-1
 make vault-edit HOST=netbird-1
 #      (IP, SSH creds, owner)
 
-# 3. Validate, dry-run, deploy
+# 3. Validate, dry-run, deploy (deploy also applies the tenant state)
 make lint
 make dry-run
 make deploy

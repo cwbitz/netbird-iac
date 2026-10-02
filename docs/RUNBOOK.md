@@ -29,7 +29,8 @@ the overview and `AGENTS.md` for design notes and gotchas.
 ```bash
 make lint      # syntax check + ansible-lint
 make dry-run     # dry run (--check --diff)
-make deploy      # deploy (add TAGS=... for a focused run)
+make deploy      # deploy the server, then apply the tenant state
+                   # (TAGS=... keeps it server-only)
 ```
 
 Focused tags: `netbird`, `netbird_preflight`, `netbird_config`,

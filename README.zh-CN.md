@@ -35,7 +35,7 @@ make host-init HOST=netbird-1
 #   vault.yml 已自动加密；用它编辑（IP、SSH 凭据、owner）：
 make vault-edit HOST=netbird-1
 
-make lint && make dry-run && make deploy
+make lint && make dry-run && make deploy   # deploy 同时应用租户状态
 ```
 
 部署以**非 root 服务账号**执行（`site.yml` 默认拒绝 root，除非
