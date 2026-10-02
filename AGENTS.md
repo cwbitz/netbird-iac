@@ -72,6 +72,12 @@ is Debian-only.
   preflight), Python 3, `openssl`, and the Galaxy collections from
   `requirements.yml`.
 - `make install` — install the pinned toolchain (mise/asdf) + Galaxy collections.
+- `make check-deps` — ensure control-node CLI prerequisites, auto-installing
+  `sshpass` (passwordless `apt-get` when available, otherwise rootless into
+  `~/.local/bin/sshpass`; override with `SSHPASS_BIN`). Only the
+  `make host-bootstrap` password probe needs `sshpass`; it runs `check-deps`
+  automatically. Steady-state Ansible password auth uses ssh_askpass, so the
+  server/tenant/backup targets do not need it.
 - `make vault-init` — create the vault password file if missing (runs before
   every deploy/lint target).
 - `make vault-view` — print the decrypted `vault.yml` + `vault_managed.yml` for a

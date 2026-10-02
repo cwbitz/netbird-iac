@@ -20,6 +20,12 @@ VAULT_PW_DIR  := $(HOME)/.config/projects/netbird-iac
 VAULT_PW_FILE := $(VAULT_PW_DIR)/ansible_vault_password
 ANSIBLE_PB    := ansible-playbook -i $(INVENTORY) $(PLAYBOOK)
 
+# sshpass is needed ONLY for the `host-bootstrap` password probe; it is
+# auto-installed by `make check-deps` (passwordless sudo when available,
+# otherwise rootless into ~/.local/bin). Key-only bootstrap does not need it,
+# and steady-state Ansible password auth uses ssh_askpass, not sshpass.
+SSHPASS_BIN   ?= $(HOME)/.local/bin/sshpass
+
 ##@ General
 
 .PHONY: help
@@ -36,7 +42,8 @@ help: ## Show grouped targets and overridable variables
 		'FROM'      'backup stamp for restore, e.g. FROM=backup/<host>/<stamp>' \
 		'FILE'      'vault file for vault-edit: vault.yml (default) or vault_managed.yml' \
 		'PLAYBOOK'  'playbook for dry-run/deploy (default: playbooks/site.yml)' \
-		'INVENTORY' 'inventory file (default: inventory/hosts.yml)'
+		'INVENTORY' 'inventory file (default: inventory/hosts.yml)' \
+		'SSHPASS_BIN' 'rootless sshpass install path (default: ~/.local/bin/sshpass)'
 	@printf '\n'
 
 ##@ Dependencies
@@ -47,6 +54,36 @@ install: ## Install the pinned toolchain + Galaxy collections
 	elif command -v asdf >/dev/null 2>&1; then asdf install; \
 	else echo "Neither mise nor asdf found; install one, or ensure ansible-core 2.19.x is on PATH." >&2; exit 1; fi
 	ansible-galaxy install -r requirements.yml
+
+.PHONY: check-deps
+check-deps: ## Ensure control-node CLI prerequisites (auto-installs sshpass)
+	@set -e; \
+	if command -v sshpass >/dev/null 2>&1 || [ -x "$(SSHPASS_BIN)" ]; then \
+		echo "sshpass: present"; \
+	elif sudo -n true >/dev/null 2>&1; then \
+		echo "sshpass: installing via sudo apt-get..."; \
+		sudo -n apt-get install -y sshpass; \
+	else \
+		echo "sshpass: installing rootless into $(dir $(SSHPASS_BIN))..."; \
+		$(MAKE) --no-print-directory install-sshpass-local; \
+	fi
+
+# (internal) install sshpass into ~/.local without root
+install-sshpass-local:
+	@set -e; \
+	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
+		echo "Cannot auto-install sshpass (apt-get/dpkg-deb not found on the control node)." >&2; \
+		echo "Install sshpass manually, or use key-only bootstrap credentials." >&2; \
+		exit 1; \
+	fi; \
+	tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	cd "$$tmp"; \
+	apt-get download sshpass >/dev/null 2>&1; \
+	dpkg-deb -x sshpass_*.deb root; \
+	mkdir -p "$(dir $(SSHPASS_BIN))"; \
+	install -m 0755 root/usr/bin/sshpass "$(SSHPASS_BIN)"; \
+	echo "sshpass installed: $(SSHPASS_BIN)"
 
 ##@ Vault
 
@@ -116,7 +153,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	@echo "Scaffolded inventory/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init ## Optional: host tuning + service accounts (bootstrap.yml)
+host-bootstrap: vault-init check-deps ## Optional: host tuning + service accounts (bootstrap.yml)
 	ansible-playbook -i $(INVENTORY) playbooks/bootstrap.yml
 
 ##@ Server

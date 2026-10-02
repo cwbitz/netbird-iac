@@ -34,6 +34,8 @@ issues Let's Encrypt certificates automatically.
   official install script (`https://get.docker.com`) when missing (Debian-family);
   set `install_docker: false` to require a preinstalled Docker instead.
 - On the control node: `mise` or `asdf`, `openssl`, and SSH access to the host.
+  `sshpass` is only needed for the `make host-bootstrap` password probe and is
+  auto-installed by `make check-deps` (which `host-bootstrap` runs).
 
 ## Quickstart
 

@@ -20,7 +20,9 @@
 - Docker Engine + Compose v2 插件；缺失时通过 Docker 官方安装脚本
   （`https://get.docker.com`）自动安装（Debian 系）；设 `install_docker: false`
   可改为要求预装。
-- 控制端：`mise` 或 `asdf`、`openssl`，以及对主机的 SSH 访问。
+- 控制端：`mise` 或 `asdf`、`openssl`，以及对主机的 SSH 访问。`sshpass` 仅
+  `make host-bootstrap` 的密码探测需要，由 `make check-deps` 自动安装
+  （`host-bootstrap` 会自动运行它）。
 
 ## 快速开始
 

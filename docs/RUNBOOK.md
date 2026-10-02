@@ -20,6 +20,9 @@ the overview and `AGENTS.md` for design notes and gotchas.
   `host_allow_root_login=true`.
 - The vault password file is auto-created by the make targets
   (`~/.config/projects/netbird-iac/ansible_vault_password`); keep it safe.
+- `sshpass` is needed only by the `make host-bootstrap` password probe;
+  `make check-deps` auto-installs it (passwordless `apt-get`, else rootless
+  into `~/.local/bin`).
 
 ## 1. Deploy
 
