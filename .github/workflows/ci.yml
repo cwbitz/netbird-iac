@@ -29,7 +29,6 @@ jobs:
         run: >-
           ansible-lint playbooks/site.yml playbooks/tenant.yml
           playbooks/bootstrap.yml playbooks/backup.yml playbooks/restore.yml
-          playbooks/vault-migrate.yml
       - name: Playbook syntax check
         run: |
           ansible-playbook --syntax-check playbooks/site.yml
@@ -37,4 +36,3 @@ jobs:
           ansible-playbook --syntax-check playbooks/bootstrap.yml
           ansible-playbook --syntax-check playbooks/backup.yml
           ansible-playbook --syntax-check playbooks/restore.yml
-          ansible-playbook --syntax-check playbooks/vault-migrate.yml

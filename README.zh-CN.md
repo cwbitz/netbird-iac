@@ -164,7 +164,7 @@ docs/RUNBOOK.md      # 运维手册（部署、备份恢复、回滚）
 `inventory/host_vars/<host>/vault.yml` 是**控制端权威**——用户提供以及控制端生成的、
 传给主机的输入（datastore/session/relay 密钥、owner/ansible 密码）；
 `vault_managed.yml` 是**主机权威**——主机回传的密钥（`admin` PAT、setup key 明文）。
-每个 key 只属于一个文件；`make vault-migrate` 可把历史遗留的 managed 键迁回。
+每个 key 只属于一个文件。
 **务必备份 `vault.yml`**：丢失 `vault_datastore_encryption_key` 会导致加密的用户数据不可恢复。
 
 ## 许可证

@@ -200,8 +200,7 @@ Never commit vaults. Ownership is split by direction:
 values plus control-generated inputs passed to the host (the datastore/session/
 relay keys, the owner/ansible passwords). `vault_managed.yml` is
 host-authoritative — secrets the host returns (the `admin` PAT, setup-key
-secrets). A key lives in exactly one file; `make vault-migrate` moves legacy
-managed keys over. **Back up `vault.yml`** — losing
+secrets). A key lives in exactly one file. **Back up `vault.yml`** — losing
 `vault_datastore_encryption_key` makes encrypted user data unrecoverable.
 
 ## License

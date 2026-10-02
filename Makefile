@@ -98,18 +98,6 @@ vault-edit: vault-init ## Edit a vault file; HOST optional if single-host, FILE=
 	fi; \
 	ansible-vault edit --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" "$$p"
 
-.PHONY: vault-migrate
-vault-migrate: vault-init ## Move control-authoritative keys from vault_managed.yml to vault.yml
-	@host="$(HOST)"; \
-	if [ -z "$$host" ]; then \
-		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
-			| python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{})); print(h[0] if len(h)==1 else "")')"; \
-	fi; \
-	if [ -z "$$host" ]; then \
-		echo "Usage: make vault-migrate HOST=<hostname> (required when the inventory has no single host)" >&2; exit 1; \
-	fi; \
-	ansible-playbook -i $(INVENTORY) playbooks/vault-migrate.yml -e migrate_host="$$host" -e vault_host_dir="$(abspath $(INVENTORY_DIR))/host_vars/$$host"
-
 ##@ Hosts
 
 .PHONY: host-init
@@ -134,8 +122,7 @@ lint: vault-init ## Playbook syntax check + ansible-lint
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/bootstrap.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/backup.yml
 	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/restore.yml
-	ansible-playbook -i $(INVENTORY) --syntax-check playbooks/vault-migrate.yml
-	ansible-lint playbooks/site.yml playbooks/tenant.yml playbooks/bootstrap.yml playbooks/backup.yml playbooks/restore.yml playbooks/vault-migrate.yml
+	ansible-lint playbooks/site.yml playbooks/tenant.yml playbooks/bootstrap.yml playbooks/backup.yml playbooks/restore.yml
 
 .PHONY: dry-run
 dry-run: vault-init ## Dry-run (--check --diff); add TAGS=...
