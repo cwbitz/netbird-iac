@@ -101,13 +101,19 @@ vault-edit: vault-init ## Edit a vault file; HOST optional if single-host, FILE=
 ##@ Hosts
 
 .PHONY: host-init
-host-init: ## Scaffold host_vars/<HOST> from the example/ template
+host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	@if [ -z "$(HOST)" ]; then echo "Usage: make host-init HOST=<hostname>" >&2; exit 1; fi
 	@if [ -e "$(INVENTORY)" ]; then :; else cp inventory/hosts.yml.example $(INVENTORY); echo "Created $(INVENTORY) from example"; fi
-	mkdir -p inventory/host_vars/$(HOST)
-	cp -n inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
-	cp -n inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
-	@echo "Scaffolded inventory/host_vars/$(HOST)/ (edit main.yml + vault.yml, then: ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml)"
+	install -d -m 0700 inventory/host_vars/$(HOST)
+	if [ ! -e inventory/host_vars/$(HOST)/main.yml ]; then cp inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml; fi
+	chmod 0644 inventory/host_vars/$(HOST)/main.yml
+	if [ ! -e inventory/host_vars/$(HOST)/vault.yml ]; then cp inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml; fi
+	@if grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then :; else \
+		echo "Encrypting inventory/host_vars/$(HOST)/vault.yml..."; \
+		ansible-vault encrypt --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" inventory/host_vars/$(HOST)/vault.yml; \
+	fi
+	chmod 0600 inventory/host_vars/$(HOST)/vault.yml
+	@echo "Scaffolded inventory/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
 
 .PHONY: host-bootstrap
 host-bootstrap: vault-init ## Optional: host tuning + service accounts (bootstrap.yml)

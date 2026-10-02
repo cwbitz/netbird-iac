@@ -2,8 +2,9 @@
 # ==============================================================================
 # Per-host secrets schema (inventory/host_vars/example/vault.yml.example)
 # ==============================================================================
-# Copy this to inventory/host_vars/<hostname>/vault.yml, fill in the real values,
-# then encrypt it:
+# Preferred: `make host-init HOST=<hostname>` copies and encrypts this schema
+# into inventory/host_vars/<hostname>/vault.yml, then edit it with
+# `make vault-edit HOST=<hostname>`. To do it by hand instead:
 #
 #   cp inventory/host_vars/example/vault.yml.example \
 #      inventory/host_vars/<hostname>/vault.yml

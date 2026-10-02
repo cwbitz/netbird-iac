@@ -79,7 +79,8 @@ is Debian-only.
 - `make vault-edit [FILE=vault_managed.yml]` — edit either vault file; a plaintext
   `vault.yml` is encrypted first.
 - `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` and
-  `inventory/host_vars/<name>/` from the committed `example/` template.
+  `inventory/host_vars/<name>/` from the committed `example/` template, and
+  encrypt the scaffolded `vault.yml` (edit it with `make vault-edit`).
 - `make host-bootstrap` — **optional, opt-in** host tuning (not part of
   `deploy`): ensures Docker Engine + Compose v2 (installing Docker CE when
   missing), sets APT/Docker mirrors for region-restricted hosts, and creates the

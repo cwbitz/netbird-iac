@@ -11,11 +11,10 @@ the overview and `AGENTS.md` for design notes and gotchas.
   **UDP 3478** open — verify *before* the first deploy.
 - Control node: ansible-core (pinned), Python 3, `openssl`, and the Galaxy
   collections: `make install`.
-- A host entry: `make host-init HOST=<hostname>`, then edit
-  `inventory/hosts.yml`, `inventory/host_vars/<host>/main.yml` (domain, ACME
-  email) and `inventory/host_vars/<host>/vault.yml` (IP, SSH creds, owner), and
-  encrypt the vault:
-  `ansible-vault encrypt inventory/host_vars/<host>/vault.yml`.
+- A host entry: `make host-init HOST=<hostname>` (scaffolds and encrypts
+  `vault.yml`), then edit `inventory/hosts.yml`,
+  `inventory/host_vars/<host>/main.yml` (domain, ACME email) and the vault
+  (`make vault-edit HOST=<host>`) for IP, SSH creds and owner.
 - Create the non-root service account (as root, once): `make host-bootstrap`,
   then point the connection at it in `vault.yml`. Deploys refuse root unless
   `host_allow_root_login=true`.

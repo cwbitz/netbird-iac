@@ -30,8 +30,8 @@ make install                # 工具链 + Galaxy collections
 make host-init HOST=netbird-1
 #   编辑 inventory/hosts.yml
 #   编辑 inventory/host_vars/netbird-1/main.yml    （域名、ACME 邮箱）
-#   编辑 inventory/host_vars/netbird-1/vault.yml   （IP、SSH 凭据、owner）
-ansible-vault encrypt inventory/host_vars/netbird-1/vault.yml
+#   vault.yml 已自动加密；用它编辑（IP、SSH 凭据、owner）：
+make vault-edit HOST=netbird-1
 
 make lint && make dry-run && make deploy
 ```

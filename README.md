@@ -41,13 +41,13 @@ issues Let's Encrypt certificates automatically.
 # 1. Toolchain + collections
 make install
 
-# 2. Create a host from the committed template
+# 2. Create a host from the committed template (vault.yml is encrypted for you)
 make host-init HOST=netbird-1
-#    - edit inventory/hosts.yml            (hostname)
-#    - edit inventory/host_vars/netbird-1/main.yml   (domain, ACME email)
-#    - edit inventory/host_vars/netbird-1/vault.yml  (IP, SSH creds, owner)
-#    - then encrypt the vault:
-ansible-vault encrypt inventory/host_vars/netbird-1/vault.yml
+#    - edit inventory/hosts.yml                       (hostname)
+#    - edit inventory/host_vars/netbird-1/main.yml    (domain, ACME email)
+#    - edit the encrypted vault:
+make vault-edit HOST=netbird-1
+#      (IP, SSH creds, owner)
 
 # 3. Validate, dry-run, deploy
 make lint
