@@ -83,9 +83,10 @@ make apply-strict  # 应用 + 删除未纳管资源
 
 路由网络与出口节点的执行顺序：
 
-1. `make apply` —— 创建并持久化 setup key；
-2. 让客户端入网（消费该 setup key）；
-3. 重跑 `make apply` 激活网关 peer 已入网的网络。
+1. `make apply` —— 创建 `home-router` 组、setup key 以及路由网络（网关按
+   `routers[].peer_groups` 绑定，此时无需 peer 已入网）；
+2. 用该 setup key 让客户端入网 —— 它会自动加入 `home-router`，并自动成为这些
+   网络的 routing peer。网络无需第二次 `make apply` 才会生效。
 
 ## 5. 备份与恢复
 

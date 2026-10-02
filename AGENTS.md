@@ -178,12 +178,13 @@ is Debian-only.
   so a **never-expiring** key (`expires_in: 0`) cannot be declared in
   `netbird_setup_keys`; create one once out-of-band. Newly created key secrets are
   persisted as `vault_setup_key_<name>`.
-- Routed networks reference their gateway **peer** by name, but that peer is
-  enrolled by the client project (docker-stack-iac) using a setup key this play
-  creates — a chicken-and-egg on a fresh account. `tenant.yml` therefore applies a
-  network only when all of its `routers[].peer` names are enrolled; otherwise it is
-  skipped with a warning and converges on a later run. Order: `netbird-iac`
-  (creates + persists the setup key) → enroll the client → re-run `netbird-iac`.
+- Routed networks bind their gateway by peer **group** (`routers[].peer_groups`,
+  e.g. `home-router`), not by an individual peer name. The group is created by the
+  tenant play and the client's setup key auto-assigns it, so a network is applied
+  on the **first** run (no chicken-and-egg); the client becomes its routing peer
+  automatically when it enrolls. No enrollment readiness gate is needed. An
+  individual peer name (`routers[].peer`) is still supported when a single
+  gateway must be pinned, but then the peer must already be enrolled.
 - Exit nodes: a `0.0.0.0/0` (and `::/0`) network resource routed via a peer IS the
   exit node. It needs (a) `masquerade: true` on the router, (b) an accept policy
   from the using group to the routing peer's group (declare an explicit one — the

@@ -92,10 +92,11 @@ renders a generated, gitignored directory
 
 Order for routed networks and exit nodes:
 
-1. `make apply` — creates and persists the setup key,
-2. enroll the client (consumes that setup key),
-3. re-run `make apply` to activate networks whose gateway peer is now
-   enrolled.
+1. `make apply` — creates the `home-router` group, the setup key and the routed
+   networks (bound by `routers[].peer_groups`, so no enrolled peer is needed yet),
+2. enroll the client with that setup key — it auto-joins `home-router` and
+   becomes the networks' routing peer automatically. No second `make apply` is
+   needed for the networks to activate.
 
 ## 5. Backup and restore
 
