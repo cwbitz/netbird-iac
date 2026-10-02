@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/cwbitz/netbird-iac/compare/v1.0.0...v1.1.0) (2026-10-02)
+
+
+### Features
+
+* verify GitHub App release automation end to end ([f877949](https://github.com/cwbitz/netbird-iac/commit/f87794900a8cd45a27f1c1f4953656b919936530))
+
 ## 1.0.0 (2026-10-02)
 
 
