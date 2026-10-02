@@ -16,5 +16,11 @@ jobs:
       - name: Run release-please
         uses: googleapis/release-please-action@v5
         with:
+          # A PAT (or GitHub App token) is required: release-please must be able
+          # to create tags/releases and have its own PR-triggered workflows run.
+          # The default GITHUB_TOKEN cannot, which leaves merged release PRs
+          # untagged ("There are untagged, merged release PRs outstanding").
+          # Fall back to GITHUB_TOKEN when the secret is not configured yet.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
