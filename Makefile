@@ -21,10 +21,12 @@ FROM ?=
 VAULT_PW_DIR  := $(HOME)/.config/projects/netbird-iac
 VAULT_PW_FILE := $(VAULT_PW_DIR)/ansible_vault_password
 
-# sshpass is needed ONLY for the `host-bootstrap` password probe; it is
-# auto-installed by `make install` (passwordless sudo when available,
-# otherwise rootless into ~/.local/bin). Key-only bootstrap does not need it,
-# and steady-state Ansible password auth uses ssh_askpass, not sshpass.
+# sshpass is needed ONLY for the `host-bootstrap` password probe. It is ensured
+# by the internal `ensure-sshpass` target (invoked by `install`): installed with
+# passwordless apt-get when available, otherwise rootless into
+# ~/.local/bin/sshpass; a failure is fatal (install it manually and re-run).
+# Key-only bootstrap does not need it, and steady-state Ansible password auth
+# uses ssh_askpass, not sshpass.
 SSHPASS_BIN   := $(HOME)/.local/bin/sshpass
 
 .PHONY: help
@@ -41,11 +43,15 @@ help: ## Show targets and overridable variables
 	@printf '\n'
 
 .PHONY: install
-install: ## Install the pinned toolchain, Galaxy collections, and sshpass
+install: ensure-sshpass ## Install the pinned toolchain, Galaxy collections, and sshpass
 	@if command -v mise >/dev/null 2>&1; then mise install; \
 	elif command -v asdf >/dev/null 2>&1; then asdf install; \
 	else echo "Neither mise nor asdf found; install one, or ensure ansible-core 2.19.x is on PATH." >&2; exit 1; fi
 	ansible-galaxy install -r requirements.yml
+
+# (internal) ensure sshpass: passwordless apt-get when available, otherwise a
+# rootless install into ~/.local/bin. A failure is fatal — no silent fallback.
+ensure-sshpass:
 	@set -e; \
 	if command -v sshpass >/dev/null 2>&1 || [ -x "$(SSHPASS_BIN)" ]; then \
 		echo "sshpass: present"; \
