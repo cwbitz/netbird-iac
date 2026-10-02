@@ -13,14 +13,26 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # A PAT or GitHub App token is required (not the default GITHUB_TOKEN):
+      # release-please must be able to create tags/releases and have its own
+      # PR-triggered workflows run. GITHUB_TOKEN cannot, which leaves merged
+      # release PRs untagged ("There are untagged, merged release PRs
+      # outstanding").
+      #
+      # Prefer a GitHub App (short-lived, per-repo, recommended) when its ID and
+      # private key are configured; otherwise fall back to a PAT
+      # (RELEASE_PLEASE_TOKEN), then to GITHUB_TOKEN so a fresh fork still runs.
+      - name: Mint a GitHub App token
+        id: app-token
+        if: ${{ vars.RELEASE_PLEASE_APP_ID != '' && secrets.RELEASE_PLEASE_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
       - name: Run release-please
         uses: googleapis/release-please-action@v5
         with:
-          # A PAT (or GitHub App token) is required: release-please must be able
-          # to create tags/releases and have its own PR-triggered workflows run.
-          # The default GITHUB_TOKEN cannot, which leaves merged release PRs
-          # untagged ("There are untagged, merged release PRs outstanding").
-          # Fall back to GITHUB_TOKEN when the secret is not configured yet.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
