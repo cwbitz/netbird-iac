@@ -170,11 +170,11 @@ owner_password: "{{ vault_owner_password | default('', true) }}"
 # netbird_posture_checks: []
 #
 # --- Networks (networks.yml) -------------------------------------------------
-# netbird_networks: []
 # A routed network binds its gateway by peer GROUP (routers[].peer_groups), not
 # by an individual peer name. Declare the group (netbird_groups) and have the
 # client's setup key auto-assign it, so the network can be created on the first
 # run and the enrolling client becomes its routing peer automatically.
+# netbird_networks: []
 #
 # --- DNS (dns/nameservers.yml, dns/zones.yml, dns/settings.yml) --------------
 # netbird_dns_nameserver_groups: []

@@ -82,8 +82,9 @@ is Debian-only.
   every deploy/lint target).
 - `make vault-view` — print the decrypted `vault.yml` + `vault_managed.yml` for a
   host (HOST optional when the inventory has a single host).
-- `make vault-edit [FILE=vault_managed.yml]` — edit either vault file; a plaintext
-  `vault.yml` is encrypted first.
+- `make vault-edit` — edit a host's `vault.yml` (HOST optional for a single
+  host); a plaintext `vault.yml` is encrypted first. `vault_managed.yml` is
+  host-authoritative and is never edited by hand.
 - `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` and
   `inventory/host_vars/<name>/` from the committed `example/` template, and
   encrypt the scaffolded `vault.yml` (edit it with `make vault-edit`).

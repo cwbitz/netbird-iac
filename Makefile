@@ -2,29 +2,30 @@
 # NetBird self-hosted IaC - Makefile wrapper
 # ==============================================================================
 # Entry points around ansible-playbook / ansible-lint. Run `make help` for the
-# target list. Override HOST=... (single host), TAGS=... (focused run),
-# FROM=... (restore source).
+# target list. Override HOST=... (single host), TAGS=... (focused run).
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-PLAYBOOK  ?= playbooks/site.yml
-INVENTORY ?= inventory/hosts.yml
-TAGS      ?=
-HOST      ?=
-FROM      ?=
-FILE      ?=
+# Fixed paths (not operator knobs): the playbooks and inventory are part of the
+# repo layout. Non-mainstream cases can call ansible directly.
+PLAYBOOK      := playbooks/site.yml
+INVENTORY     := inventory/hosts.yml
+INVENTORY_DIR := inventory
 
-INVENTORY_DIR := $(patsubst %/,%,$(dir $(INVENTORY)))
+# Command-line inputs (set at invocation, e.g. `make restore FROM=<dir>`).
+TAGS ?=
+HOST ?=
+FROM ?=
+
 VAULT_PW_DIR  := $(HOME)/.config/projects/netbird-iac
 VAULT_PW_FILE := $(VAULT_PW_DIR)/ansible_vault_password
-ANSIBLE_PB    := ansible-playbook -i $(INVENTORY) $(PLAYBOOK)
 
 # sshpass is needed ONLY for the `host-bootstrap` password probe; it is
 # auto-installed by `make check-deps` (passwordless sudo when available,
 # otherwise rootless into ~/.local/bin). Key-only bootstrap does not need it,
 # and steady-state Ansible password auth uses ssh_askpass, not sshpass.
-SSHPASS_BIN   ?= $(HOME)/.local/bin/sshpass
+SSHPASS_BIN   := $(HOME)/.local/bin/sshpass
 
 ##@ General
 
@@ -37,13 +38,9 @@ help: ## Show grouped targets and overridable variables
 		$(MAKEFILE_LIST)
 	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
 	@printf '  \033[36m%-23s\033[0m %s\n' \
-		'HOST'      'target host (host-init, print, vault-view/edit); optional if single-host' \
-		'TAGS'      'focused tags for dry-run/deploy, e.g. TAGS=netbird' \
-		'FROM'      'backup stamp for restore, e.g. FROM=backup/<host>/<stamp>' \
-		'FILE'      'vault file for vault-edit: vault.yml (default) or vault_managed.yml' \
-		'PLAYBOOK'  'playbook for dry-run/deploy (default: playbooks/site.yml)' \
-		'INVENTORY' 'inventory file (default: inventory/hosts.yml)' \
-		'SSHPASS_BIN' 'rootless sshpass install path (default: ~/.local/bin/sshpass)'
+		'HOST' 'target host (host-init, print, vault-view/edit); optional if single-host' \
+		'TAGS' 'focused tags for dry-run/deploy, e.g. TAGS=netbird; on deploy, skips the tenant apply' \
+		'FROM' 'backup directory for restore, e.g. FROM=backup/<host>/<stamp>'
 	@printf '\n'
 
 ##@ Dependencies
@@ -115,19 +112,16 @@ vault-view: vault-init ## Print vault.yml + vault_managed.yml (decrypted); HOST 
 	done
 
 .PHONY: vault-edit
-vault-edit: vault-init ## Edit a vault file; HOST optional if single-host, FILE=vault.yml (default)
-	@file="$(FILE)"; [ -n "$$file" ] || file="vault.yml"; \
-	case "$$file" in vault.yml|vault_managed.yml) ;; \
-		*) echo "FILE must be vault.yml or vault_managed.yml" >&2; exit 1;; esac; \
-	host="$(HOST)"; \
+vault-edit: vault-init ## Edit vault.yml; HOST optional if single-host
+	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
 		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
 			| python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{})); print(h[0] if len(h)==1 else "")')"; \
 	fi; \
 	if [ -z "$$host" ]; then \
-		echo "Usage: make vault-edit HOST=<hostname> [FILE=vault_managed.yml]" >&2; exit 1; \
+		echo "Usage: make vault-edit HOST=<hostname>" >&2; exit 1; \
 	fi; \
-	p="$(INVENTORY_DIR)/host_vars/$$host/$$file"; \
+	p="$(INVENTORY_DIR)/host_vars/$$host/vault.yml"; \
 	if [ ! -f "$$p" ]; then echo "No such vault file: $$p" >&2; exit 1; fi; \
 	if grep -q 'ANSIBLE_VAULT' "$$p"; then :; else \
 		echo "Encrypting plaintext $$p before editing..."; \
@@ -141,16 +135,16 @@ vault-edit: vault-init ## Edit a vault file; HOST optional if single-host, FILE=
 host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	@if [ -z "$(HOST)" ]; then echo "Usage: make host-init HOST=<hostname>" >&2; exit 1; fi
 	@if [ -e "$(INVENTORY)" ]; then :; else cp inventory/hosts.yml.example $(INVENTORY); echo "Created $(INVENTORY) from example"; fi
-	install -d -m 0700 inventory/host_vars/$(HOST)
-	if [ ! -e inventory/host_vars/$(HOST)/main.yml ]; then cp inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml; fi
-	chmod 0644 inventory/host_vars/$(HOST)/main.yml
-	if [ ! -e inventory/host_vars/$(HOST)/vault.yml ]; then cp inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml; fi
-	@if grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then :; else \
-		echo "Encrypting inventory/host_vars/$(HOST)/vault.yml..."; \
-		ansible-vault encrypt --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" inventory/host_vars/$(HOST)/vault.yml; \
+	install -d -m 0700 $(INVENTORY_DIR)/host_vars/$(HOST)
+	if [ ! -e $(INVENTORY_DIR)/host_vars/$(HOST)/main.yml ]; then cp $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$(HOST)/main.yml; fi
+	chmod 0644 $(INVENTORY_DIR)/host_vars/$(HOST)/main.yml
+	if [ ! -e $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml ]; then cp $(INVENTORY_DIR)/host_vars/example/vault.yml.example $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; fi
+	@if grep -q 'ANSIBLE_VAULT' $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; then :; else \
+		echo "Encrypting $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml..."; \
+		ansible-vault encrypt --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; \
 	fi
-	chmod 0600 inventory/host_vars/$(HOST)/vault.yml
-	@echo "Scaffolded inventory/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
+	chmod 0600 $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml
+	@echo "Scaffolded $(INVENTORY_DIR)/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
 
 .PHONY: host-bootstrap
 host-bootstrap: vault-init check-deps ## Optional: host tuning + service accounts (bootstrap.yml)
@@ -169,11 +163,15 @@ lint: vault-init ## Playbook syntax check + ansible-lint
 
 .PHONY: dry-run
 dry-run: vault-init ## Dry-run (--check --diff); add TAGS=...
-	$(ANSIBLE_PB) --check --diff $(if $(TAGS),--tags $(TAGS),)
+	ansible-playbook -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init ## Deploy the server (full playbook)
-	$(ANSIBLE_PB) $(if $(TAGS),--tags $(TAGS),)
+deploy: vault-init ## Deploy the server, then apply the tenant state (one-shot); TAGS=... runs only the server
+	ansible-playbook -i $(INVENTORY) $(PLAYBOOK) $(if $(TAGS),--tags $(TAGS),)
+	@if [ -z "$(TAGS)" ]; then \
+		echo "==> Applying the tenant config-as-code state (playbooks/tenant.yml)..."; \
+		ansible-playbook -i $(INVENTORY) playbooks/tenant.yml -e tenant_commit=true; \
+	fi
 
 ##@ Tenant (config-as-code)
 
@@ -194,7 +192,9 @@ backup: vault-init ## Back up the netbird_data volume (key stays in vault_manage
 .PHONY: restore
 restore: vault-init ## Restore FROM=backup/<host>/<stamp>
 	@if [ -z "$(FROM)" ]; then echo "Usage: make restore FROM=backup/<host>/<timestamp>" >&2; exit 1; fi
-	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e restore_from=$(abspath $(FROM))
+	@restore_dir="$(abspath $(FROM))"; \
+	if [ ! -d "$$restore_dir" ]; then echo "No such backup directory: $$restore_dir" >&2; exit 1; fi; \
+	ansible-playbook -i $(INVENTORY) playbooks/restore.yml -e restore_from="$$restore_dir"
 
 ##@ Operations
 
