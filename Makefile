@@ -18,8 +18,13 @@ TAGS ?=
 HOST ?=
 FROM ?=
 
-VAULT_PW_DIR  := $(HOME)/.config/projects/netbird-iac
-VAULT_PW_FILE := $(VAULT_PW_DIR)/ansible_vault_password
+# Ansible Vault password file (outside the repo), exported under Ansible's own
+# env-var name so every ansible-* invocation picks it up.
+export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/netbird-iac/ansible_vault_password
+
+# Unified operator hint, printed only when a vault command cannot decrypt a
+# file (the vault password is missing or does not match).
+VAULT_PASSWORD_HINT := ERROR: Ansible Vault cannot decrypt this file - the password in $(ANSIBLE_VAULT_PASSWORD_FILE) is missing or incorrect. Restore the original password, or re-encrypt the vault file with the current one.
 
 # sshpass is needed ONLY for the `host-bootstrap` password probe. It is ensured
 # by the internal `ensure-sshpass` target (invoked by `install`): installed with
@@ -76,12 +81,22 @@ ensure-sshpass:
 	fi
 
 .PHONY: vault-init
-vault-init: ## Create the Ansible Vault password file (if missing)
-	@mkdir -p "$(VAULT_PW_DIR)"
-	@if [ ! -f "$(VAULT_PW_FILE)" ]; then \
-		umask 077; openssl rand -base64 32 > "$(VAULT_PW_FILE)"; \
-		echo "Created vault password: $(VAULT_PW_FILE)"; \
-	else echo "Vault password already present: $(VAULT_PW_FILE)"; fi
+vault-init: ## Create the Ansible Vault password file (if missing) and preflight it
+	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD_FILE))
+	@if [ ! -s "$(ANSIBLE_VAULT_PASSWORD_FILE)" ]; then \
+		openssl rand -base64 32 > "$(ANSIBLE_VAULT_PASSWORD_FILE)"; \
+		chmod 600 "$(ANSIBLE_VAULT_PASSWORD_FILE)"; \
+		echo "vault password generated: $(ANSIBLE_VAULT_PASSWORD_FILE) (BACK IT UP in a password manager)"; \
+	fi
+	@test "$$(wc -c < "$(ANSIBLE_VAULT_PASSWORD_FILE)")" -ge 44 || { echo "ERROR: vault password too weak"; exit 1; }
+	@f=""; \
+	for c in $$(find "$(INVENTORY_DIR)" -type f -name 'vault*.yml' 2>/dev/null); do \
+		if head -c 16 "$$c" | grep -q 'ANSIBLE_VAULT'; then f="$$c"; break; fi; \
+	done; \
+	if [ -n "$$f" ] && command -v ansible-vault >/dev/null 2>&1; then \
+		ansible-vault view "$$f" >/dev/null 2>&1 \
+			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
+	fi
 
 .PHONY: vault-view
 vault-view: vault-init ## Print vault.yml + vault_managed.yml (decrypted); HOST optional if single-host
@@ -98,7 +113,8 @@ vault-view: vault-init ## Print vault.yml + vault_managed.yml (decrypted); HOST 
 		printf '\n\033[1m== %s ==\033[0m\n' "$$p"; \
 		if [ ! -f "$$p" ]; then echo "(missing)"; continue; fi; \
 		if grep -q 'ANSIBLE_VAULT' "$$p"; then \
-			ansible-vault view --vault-password-file "$(VAULT_PW_FILE)" "$$p"; \
+			ansible-vault view "$$p" 2>/dev/null \
+				|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 		else cat "$$p"; fi; \
 	done
 
@@ -116,9 +132,9 @@ vault-edit: vault-init ## Edit vault.yml; HOST optional if single-host
 	if [ ! -f "$$p" ]; then echo "No such vault file: $$p" >&2; exit 1; fi; \
 	if grep -q 'ANSIBLE_VAULT' "$$p"; then :; else \
 		echo "Encrypting plaintext $$p before editing..."; \
-		ansible-vault encrypt --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" "$$p"; \
+		ansible-vault encrypt "$$p"; \
 	fi; \
-	ansible-vault edit --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" "$$p"
+	ansible-vault edit "$$p"
 
 .PHONY: host-init
 host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
@@ -130,7 +146,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> from the example/ template
 	if [ ! -e $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml ]; then cp $(INVENTORY_DIR)/host_vars/example/vault.yml.example $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; fi
 	@if grep -q 'ANSIBLE_VAULT' $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; then :; else \
 		echo "Encrypting $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml..."; \
-		ansible-vault encrypt --encrypt-vault-id default --vault-password-file "$(VAULT_PW_FILE)" $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; \
+		ansible-vault encrypt $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml; \
 	fi
 	chmod 0600 $(INVENTORY_DIR)/host_vars/$(HOST)/vault.yml
 	@echo "Scaffolded $(INVENTORY_DIR)/host_vars/$(HOST)/ (edit main.yml; use 'make vault-edit HOST=$(HOST)' for the encrypted vault.yml)"
