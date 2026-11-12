@@ -371,7 +371,7 @@ to skip.
 - [ ] `make backup` leaves the container running; `make restore FROM=...` with the
       same datastore key restores the data and keeps the external contract intact.
 - [ ] `make vault-view` / `make vault-edit`: per-host decrypt, edits stay encrypted
-      and sorted.
+      and sorted, and a save is refused when the vault changed during the edit.
 - [ ] `make host-init HOST=<name> HOST_IP=<addr>`: comment-free scaffold, encrypted
       vault, idempotent; `FORCE=1` replaces the address.
 - [ ] `make hostkey-init`: refreshes the entries; a changed key is refused with its

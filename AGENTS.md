@@ -145,7 +145,9 @@ this project's vars/vault. Rules:
 - `make vault-edit [HOST=<name>]` — edit one host's `vault.yml` (HOST, or the
   single host when the inventory holds exactly one; the target list is printed
   when it is omitted and the inventory has several); a plaintext `vault.yml` is
-  encrypted first, and the keys are re-sorted alphabetically on save.
+  encrypted first, the keys are re-sorted alphabetically on save, and a save is
+  refused when the vault changed while the editor was open (the edited text is
+  kept for a merge).
 - `make host-init [HOST=<name>] [HOST_IP=<addr>] [HOST_PORT=<port>]` — scaffold
   `inventory/hosts.yml` and `inventory/host_vars/<name>/` **comment-free** from the
   committed `example/` template, encrypt the scaffolded `vault.yml`, and add the
