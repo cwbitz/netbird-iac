@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/cwbitz/netbird-management-iac/compare/v2.2.1...v2.2.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ci:** stream the SSH runner output instead of buffering it ([#13](https://github.com/cwbitz/netbird-management-iac/issues/13)) ([b78e53a](https://github.com/cwbitz/netbird-management-iac/commit/b78e53a485348ddcc868433b25b8fb345febae6a))
+
 ## [2.2.1](https://github.com/cwbitz/netbird-management-iac/compare/v2.2.0...v2.2.1) (2026-11-12)
 
 
