@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/cwbitz/netbird-management-iac/compare/v2.2.0...v2.2.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **vault:** refuse a vault edit that would drop newly written secrets ([#11](https://github.com/cwbitz/netbird-management-iac/issues/11)) ([2ac6e39](https://github.com/cwbitz/netbird-management-iac/commit/2ac6e39e560d07ef76d6f55c4e10c794a986b006))
+
 ## [2.2.0](https://github.com/cwbitz/netbird-management-iac/compare/v2.1.0...v2.2.0) (2026-10-28)
 
 
